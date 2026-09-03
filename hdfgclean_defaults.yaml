@@ -1,0 +1,232 @@
+# example configuration file with all possible settings and their default 
+# values that can be passed to the `HDFGClean` class of the `hdfgclean` module.
+
+# NOTE: we strongly recommend that you make your own copy of this file before modifying it
+
+###########################
+#  ***** REQUIRED: *****  #
+###########################
+
+# path to your `hd_sims_dir`:
+hd_sims_dir: 
+
+
+###########################################
+#  ** optional: ** (with default values)  #
+###########################################
+
+# path to an output directory for FG cleaning;
+# if not provided, will use the directory in which 
+# your configuration file is saved
+#output_dir:
+
+# NOTE : if you have not yet generated or downloaded the HD sims,
+# you will need to generate them from the lower-resolution S10 sims,
+# and provide the path to the S10 sims as `lowres_sims_dir`;
+# see the `hdsims` repository for instructions
+lowres_sims_dir: null
+
+# ** location and size of the HD sims ** 
+# location of map center (in degrees):
+ra_ctr: 6
+dec_ctr: 6
+# size of maps (in degrees):
+width: 10
+height: 10
+# apodization width used when taking Fourier/harmonic transforms (in degrees):
+apod_width: 0.5
+
+# ** dividing the maps into smaller patches **
+# maximum width/height of each patch (in degrees):
+max_patch_size: 3
+# apodization width to use for the maps of the smaller patches (in degrees):
+patch_apod_width: 0.25
+
+# whether to print out information about the progress of the FG cleaning, etc:
+verbose: true
+# you may use a Python `logging.Logger` instance to print out the messages;
+# by default, the `print` function is used
+log: null
+
+
+# NOTE: the remaining settings may be changed, but we recommend that you use the default values
+# (which are the only ones guaranteed to have been thoroughly tested)
+
+# ** general FG cleaning ** (passed to `hdfgclean.fgclean.FGClean`):
+rms_niter: 10
+rms_nsigma: 3
+smooth_p2d_npix: 3
+
+# CIB and radio point sources:
+subtract_sources: true
+# list of SNR thresholds used for iterative FG cleaning:
+sources_snr_threshold_list:
+- 250
+- 100
+- 75
+- 50
+- 40
+- 30
+- 25
+- 20
+- 15
+- 12.5
+- 10
+- 7.5
+- 5
+- 4
+# grid size used for RMS maps (in arcminutes)
+sources_rms_gw: 10
+# while iteratively removing sources with a given SNR threshold 
+# (above the minimum), move on to the next SNR threshold after 
+# fewer than  `min_num_iter_sources_per_snr` are found 
+min_num_iter_sources_per_snr: 10
+# whether to extrapolate the fluxes of CIB/radio sources detected at 
+# higher/lower frequencies to the other map frequencies:
+extrapolate_dim_sources: true
+# minimum SNR of detected sources to use when calculating the mean CIB or
+# radio spectral index between two frequencies:
+min_snr_for_spectral_index: 10
+# by default, we iteratively calculate a mean spectral index, removing 
+# sources that differ from the average by more than 2.5 sigma:
+nsigma_for_spectral_index: 2.5
+# frequencies (GHz) used for the CIB and radio flux extrapolation;
+# by default, the highest/lowest map frequency is used for CIB/radio
+freq_for_cib: null
+freq_for_radio: null
+# whether to identify, re-measure, and re-subtract any sources that were
+# missubtracted during the iterative FG cleaning procedure:
+remeasure_missubtracted_sources: true
+# maximum number of times to do the remeasuring step:
+max_ntimes_remeasure: 25
+# list of SNR thresholds to use while remeasuring: 
+remeasure_snr_threshold_list:
+- 250
+- 100
+- 50
+- 25
+- 15
+- 10
+- 5
+- 4
+
+# tSZ clusters:
+subtract_clusters: true
+# list of SNR thresholds used for iterative FG cleaning:
+clusters_snr_threshold_list:
+- 50
+- 25
+- 15
+- 12.5
+- 10
+- 7.5
+- 5
+- 4
+# grid size used for RMS maps (in arcminutes)
+clusters_rms_gw: 40
+# you may provide a dictionary of python functions to use  as the cluster 
+# profiles in the matched filters (this is easier to do within a Python 
+# script, as opposed to saving the information in the configuration file);
+# see the `get_default_gauss_cluster_profiles_dict` function in the 
+# `fgfilters` module for the default set of profiles used, and as an 
+# example of the `cluster_profiles` dictionary format
+cluster_profiles: null
+# if using a non-default set of cluster profiles, you MUST provide a 
+# simple, short description (`str`; used in file names, etc.) for the
+# profiles you're using:
+cluster_profiles_info: null
+# on each iteration of cluster subtraction, define a distance (in arcminutes)
+# from each subtracted cluster, such that no other clusters within that 
+# distance will be subtracted from the map until the next iteration
+clusters_iter_match_radius: 1
+
+
+# for the maps used as the noise (i.e., everything in the map besides the 
+# signal we want to remove) in the matched filter calculations:
+
+# if the set of hd sims used for the noise maps are saved to a different 
+# directory than your `hd_sims_dir`, you may provide that path here:
+hd_noise_sims_for_filters_dir: null
+# any additional keyword arguments (passed to `hdsims.hdsims.HDSims`) for
+# the noise maps (e.g. map size or location, random seeds, etc.)
+noise_maps_kwargs: {}
+# if you would like to use your own set of noise maps, provide a 
+# dictionary with paths to the maps at each frequency:
+# for the point source filters, "noise" = white noise + CMB + kSZ + tSZ
+noise_maps_for_source_filters: null
+# for tSZ cluster filters, "noise" = white noise + CMB + kSZ + *residual* point sources 
+# (i.e. sources remaining after iteratively removing point sources down to some SNR)
+noise_maps_for_cluster_filters: null
+# when filtering the FG cleaned maps to make masks for residual |SNR| >= 5 point soures, 
+# the "noise" = white noise + CMB + kSZ + *residual* tSZ
+noise_maps_for_source_mask_filters: null
+
+
+
+# ** additional settings for FG cleaning the HD sims ** 
+# (passed to `hdfgclean.hdfgclean.HDFGClean`):
+
+# masking known, very bright sources before FG cleaning:
+mask_bright_sources_before_fgclean: true
+# minimum flux (in mJy) for sources to mask before FG cleaning
+min_masked_flux: 1000
+# apodization width to use for the bright sources mask (in arcminutes)
+source_mask_apod_width: 1
+# mask radius to use (in arcminutes); by default, will change based on 
+# the beam size at each frequency
+source_mask_radius: null
+
+# masking known large, massive, nearby clusters after FG cleaning:
+mask_large_clusters_after_fgclean: true
+# apodization width to use for the clusters mask (in arcminutes)
+cluster_mask_apod_width: 5
+# maximum redshift, minimum mass (M500, in solar masses), and 
+# minimum angular size (arcmin) to determine which clusters will be masked
+max_z_to_mask: 0.2
+min_M500_to_mask: 200000000000000.0
+min_cluster_mask_radius: 5
+
+
+# ** additional settings for the HD sims ** (passed to `hdsims.hdsims.HDSims`):
+# see the `hdsims` repository for more information: github.com/CMB-HD/hdsims
+
+# can specify a different apodization width (in degrees) for operations 
+# on the maps that differs from the `apod_width` used for power spectra; 
+# by default, the `apod_width` is used
+map_apod_width: null
+
+# random seeds for the CMB and white noise realizations:
+cmb_seed: 58
+noise_seeds:
+  30: 1
+  90: 2
+  148: 3
+  219: 4
+  277: 5
+  350: 6
+
+# NOTE : we strongly recommend that you do not change the following:
+# list of map frequencies (GHz):
+freqs:
+- 90
+- 148
+- 219
+- 277
+# list of components (signals) in the maps:
+components:
+- ksz
+- tsz
+- cib
+- radio
+- cmb
+cib_model: baseline
+# map resolution, in arcminutes 
+res: 0.04
+# for power spectra:
+lmax: 21000
+bin_edges: null
+bin_info: null
+# maximum multipoles used when generated the simulations:
+lmax4alms: 24000
+lmax4theo: 40000
+
