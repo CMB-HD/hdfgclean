@@ -18,7 +18,7 @@ We also provide python code in the `reproduce_10x10` directory to identically re
 The rest of this readme contains the following sections:
 
 - [Installation instructions](#installation-instructions)
-  - [Required packages](required-packages)
+  - [Required packages](#required-packages)
 - [Overview of foreground cleaning](#overview-of-foreground-cleaning)
 - [How to use the code](#how-to-use-the-code)
   - [Using MPI (strongly recommended)](#using-mpi-strongly-recommended)
