@@ -244,7 +244,7 @@ class FGClean:
         self.noise_maps_for_source_mask_filters_fnames = None
         self.noise_maps_for_source_mask_filters_freqs = []
         if hd_noise_sims_for_filters_dir is not None:
-            noise_maps_kwargs = {**noise_maps_kwargs, 'make_output_dirs': mpi.is_rank0}}
+            noise_maps_kwargs = {**noise_maps_kwargs, 'make_output_dirs': mpi.is_rank0}
             self.noise_sims_for_filters = fgfilters.NoiseSimsForFilters(hd_noise_sims_for_filters_dir, **noise_maps_kwargs)
         else:
             dict_name = lambda name : f'noise_maps_for_{name}_filters' # for error messages
