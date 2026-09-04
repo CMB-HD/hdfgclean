@@ -1,20 +1,34 @@
 # Foreground cleaning for CMB-HD
 
-This repository contains code to run the extragalactic foreground (FG) cleaning procedure presented in [MacInnis, Ange, Sehgal, Kable, and Blackstad (2026)](https://arxiv.org/abs/XXXX.XXXXX) (**TODO:LINK2PAPER**), which detects and removes the thermal SZ (tSZ), cosmic infrared background (CIB), and radio galaxies from a set of ultrahigh-resolution CMB temperature maps that also include the kinetic SZ (kSZ) and instrumental noise. Please cite that work if you use this code.
+This repository contains code to run the extragalactic foreground (FG) cleaning procedure presented in [MacInnis, Ange, Sehgal, Kable, and Blackstad (2026)](https://arxiv.org/abs/XXXX.XXXXX) (**TODO:LINK2PAPER**), which detects and removes the thermal SZ (tSZ), cosmic infrared background (CIB), and radio galaxies from a set of ultrahigh-resolution lensed CMB temperature maps that also include the kinetic SZ (kSZ) and instrumental noise. Please cite that work if you use this code.
 
-The code we provide here can be used to:
-- Iteratively detect, measure, and remove the CIB, radio galaxies, and tSZ clusters from a set of maps at multiple frequencies.
-- Generate masks for any significant residual point sources or clusters remaining in the maps after FG cleaning.
+The code we provide here can be used to iteratively detect, measure, and remove the CIB, radio galaxies, and tSZ clusters from a set of maps at multiple frequencies.
 
 For maps that were generated with the [hdsims](https://github.com/CMB-HD/hdsims) package (including the ultrahigh-resolution simulations available on [LAMBDA](https://lambda.gsfc.nasa.gov/simulation/ultrahigh_resolution_sims.html)), we also provide methods to:
-- Take the power spectrum of the temperature maps (or any combination of their individual components) before or after FG cleaning, with or without applying a mask.
+- Take the power spectrum of the maps (or any combination of their individual components) before or after FG cleaning, with or without applying a mask.
 - Match the catalogs of detected point sources (CIB + radio) or clusters to the catalogs of all true point sources or clusters in the maps.
-- Generate the relevant plots of MacInnis et. al.
+- Generate the relevant plots of MacInnis et. al. (2026)
 
-We also provide an example to reproduce the results presented in [**TODO:LINK2PAPER**](https://arxiv.org/abs/XXXX.XXXXX), (**TODO**) a similar example using a smaller set of four-square-degree maps, and (**TODO**) instructions for running the foreground cleaning on a different set of maps.
+The main code we provide can be run with `run_hdfgclean.py` for maps generated with `hdsims`, or `run_fgclean.py` for a more general set of maps compatible with the [pixell](https://pixell.readthedocs.io/en/latest/readme.html) package (see below for further details).
 
+We also provide python code in the `reproduce_10x10` directory to identically reproduce the 100-square-degree FG-cleaned maps presented in MacInnis et. al. (2026). In the `examples` directory we provide (**TODO**) a similar example using a smaller set of four-square-degree maps, and (**TODO**) an example to run the foreground cleaning on a different set of maps.
 
-**TODO** : add a table of contents for readme?
+---
+
+The rest of this readme contains the following sections:
+
+- [Installation instructions](#installation-instructions)
+  - [Required packages](required-packages)
+- [Overview of foreground cleaning](#overview-of-foreground-cleaning)
+- [How to use the code](#how-to-use-the-code)
+  - [Using MPI (strongly recommended)](#using-mpi-strongly-recommended)
+  - [Using `HDFGClean` with `hdsims`](#using-hdfgclean-with-hdsims)
+    - [Before using `HDFGClean`](#before-using-hdfgclean)
+    - [Initializing `HDFGClean`](#initializing-using-hdfgclean)
+    - [Using `HDFGClean`](#using-hdfgclean)
+  - [Using `FGClean` with any map(s)](#using-fgclean-with-any-maps)
+- [Reproducing the results of MacInnis et. al. (2026)](#reproducing-the-results-of-macinnis-et-al-2026)
+- [Examples](#examples)
 
 ---
 
@@ -45,7 +59,7 @@ To use the `hdfgclean` code, you will need to install Python 3 and several Pytho
 - [mpi4py](https://mpi4py.readthedocs.io) 4.1.1 (optional but *strongly* recommended)
 
 
-If you would like to reproduce the parameter forecasts of MacInnis et. al. (**TODO**: refer to relevant section in readme), you will also need to install [hdfisher](https://github.com/CMB-HD/hdfisher) and [getdist](https://getdist.readthedocs.io).
+If you would like to reproduce the parameter forecasts of MacInnis et. al. (2026) (**TODO**: refer to relevant section in readme), you will also need to install [hdfisher](https://github.com/CMB-HD/hdfisher) and [getdist](https://getdist.readthedocs.io).
 
 ---
 
@@ -56,7 +70,7 @@ Below is a brief summary of the foreground cleaning procedure of [**TODO:LINK2PA
 
 We start with a set of CMB temperature maps at different frequencies, containing the tSZ and/or CIB and radio sources.
 > **TODO** (make a note somewhere to clarify this?): code allows you to turn off source/cluster subtraction (so you can, for whatever reason, use maps that don't have tSZ or don't have point sources); *but* for sources, if doing the "extrapolation" step (default behavior), it assumes the map has both CIB and radio - i.e., can't turn off extrapolation for only CIB / only radio
-- In MacInnis et. al., we used 0.04 arcminute-resolution simulations generated with `hdsims` (**TODO** : refer them to different section for more info) at 90, 148, 219, and 277 GHz; each map is the sum of the beam- and pixel-window-convolved lensed CMB, kSZ, tSZ, CIB, and radio galaxies, plus instrumental noise, using the instrumental noise levels and beam sizes for [CMB-HD](https://cmb-hd.org).
+- In MacInnis et. al. (2026), we used 0.04 arcminute-resolution simulations generated with `hdsims` (**TODO** : refer them to different section for more info) at 90, 148, 219, and 277 GHz; each map is the sum of the beam- and pixel-window-convolved lensed CMB, kSZ, tSZ, CIB, and radio galaxies, plus instrumental noise, using the instrumental noise levels and beam sizes for [CMB-HD](https://cmb-hd.org/survey-and-instrument-overview/).
 
 
 The foreground cleaning is done iteratively by first subtracting point sources or tSZ clusters detected with a signal-to-noise ratio (SNR) above some threshold from the map(s), and then moving down to lower SNR thresholds until the minimum (by default, SNR = 4) is reached. On a given iteration, we take the map(s) after the previous iteration and:
@@ -68,7 +82,7 @@ The foreground cleaning is done iteratively by first subtracting point sources o
 
 
 We first remove CIB and radio point sources from the maps at each frequency, and then remove the tSZ clusters from the source-subtracted maps at all frequencies simultaneously; we do not attempt to remove any other foregrounds, such as the kSZ.
-- After subtracting all sources detected with SNR above the minimum threshold from each map, we identify any CIB sources detected at the maximum frequency $\nu_\mathrm{max}$ but not at a lower frequency $\nu < \nu_\mathrm{max}$, calculate an average $\nu_\mathrm{max}$-to-$\nu$ CIB spectral index, use this to extrapolate the fluxes of these CIB sources from $\nu_\mathrm{max}$ to the lower frequency $\nu$, and subtract them from the map at frequency $\nu$.
+- After subtracting all sources detected with SNR above the minimum threshold from each map, we calculate an average $\nu_\mathrm{max}$ - to - $\nu$ CIB spectral index using bright sources detected at both frequencies, and then identify any CIB sources detected at the maximum frequency $\nu_\mathrm{max}$ but not at a lower frequency $\nu < \nu_\mathrm{max}$. We use the measured spectral index to extrapolate the fluxes of these CIB sources from $\nu_\mathrm{max}$ to the lower frequency $\nu$, and subtract them from the map at frequency $\nu$.
 - Similarly, we identify any radio sources detected at the lowest frequency $\nu_\mathrm{min}$ but not at a higher frequency $\nu > \nu_\mathrm{min}$, and use the same approach to subtract these radio sources from the map at frequency $\nu$.
 
 > **TODO** : we don't do the extrapolation+subtraction of radio sources at 277 GHz (b/c much fewer radio sources than CIB, so any residual dim radio at 277 won't make a big difference ; and also b/c we are just using 277 to do fg cleaning on 90/148)
@@ -78,7 +92,7 @@ We first remove CIB and radio point sources from the maps at each frequency, and
 
 ## How to use the code
 
-The `hdfgclean` package provides two python classes with methods to run the FG cleaning on a set of maps, and to calculate or access the results: (**TODO** : say this better; "results" seems vague)
+The `hdfgclean` package provides two python classes with methods to run the FG cleaning on a set of maps and calculate or the results: 
 - The `HDFGClean` class in the `hdgfclean.py` module runs the FG cleaning on maps generated by [hdsims](https://github.com/CMB-HD/hdsims), matches the catalogs of detected point sources and clusters to the true catalogs, and calculates the power spectra of the maps.
 - The `FGClean` class in the `fgclean.py` module is designed to run the FG cleaning on any set of maps. (**TODO**: the maps must be compatible with pixell - not sure if they must be CAR maps, or just maps with rectangular pixels?)
 
@@ -93,14 +107,14 @@ Both classes will save a catalog of all detected point sources at each frequency
 ### Using MPI (strongly recommended)
 
 By default, we divide maps that are larger than $3^\circ \times 3^\circ$ into a grid of smaller patches (with a default maximum size of $3^\circ \times 3^\circ$), and run the full FG cleaning procedure on each individual patch. This may (and should) be done in parallel using MPI; we recommend using one MPI process per smaller patch.
-- For reference, the maps used in MacInnis et. al. were divided into 25 patches, and it took about five hours to run the FG cleaning on all patches simultaneously; this would have taken about 25 times as long without MPI.
+- For reference, the maps used in MacInnis et. al. (2026) were divided into 25 patches, and it took about five hours to run the FG cleaning on all patches simultaneously; this would have taken about 25 times as long without MPI.
 
 
 After the FG cleaning has finished running on all patches, we combine the output of each into a set of maps and catalogs for the full region of the input maps.
 
 
 Note that `HDFGClean` also provides methods to match the detected source/cluster catalogs to their true counterparts and to calculate the power spectra of the maps in parallel with MPI; see (**TODO**: where?) for more information. Here, we note that:
-- The matching on done on each patch, but does not require as much memory as the FG cleaning, so we recommend that you still use one MPI process per patch, but spread across fewer nodes.
+- The matching is done on each patch, but does not require as much memory as the FG cleaning, so we recommend that you still use one MPI process per patch, but spread across fewer nodes.
 - The power spectra is calculated for the full-sized maps (as opposed to the smaller patches). This requires fewer MPI processes but more memory than the FG cleaning, so we recommend only using one or two MPI processes per node for this part (depending on your computing resources).
 
 
@@ -124,7 +138,7 @@ where `/path/to/myHDsims` is the path to the directory where you would like to s
 
 
 
-By default, we also use a different set of $3^\circ \times 3^\circ$ maps generated by `hdsims` for the matched filter calculations (see MacInnis et. al. for further details). You **must** generate these maps before running any FG cleaning. To do so, first save their lower-resolution counterparts (112 MB of files, cut out from the full-sky [simulations](https://lambda.gsfc.nasa.gov/simulation/full_sky_sims_ov.html) of [Sehgal et. al. (2010)](https://arxiv.org/abs/0908.0540)) by running
+By default, we also use a different set of $3^\circ \times 3^\circ$ maps generated by `hdsims` for the matched filter calculations (see MacInnis et. al. 2026 for further details). You **must** generate these maps before running any FG cleaning. To do so, first save their lower-resolution counterparts (112 MB of files, cut out from the full-sky [simulations](https://lambda.gsfc.nasa.gov/simulation/full_sky_sims_ov.html) of [Sehgal et. al. (2010)](https://arxiv.org/abs/0908.0540)) by running
 
 ```
 bash download_s10sims_for_noise_maps.sh /path/to/myHDsims
@@ -146,10 +160,10 @@ where the `download_s10sims_for_noise_maps.sh` and `generate_noise_sims.py` file
 
 There are two **required** arguments that you must pass to `HDFGClean`:
 - A path to an `outdir_dir` where you would like to put the files saved by `HDFGClean`, and
-- The path to your `hd_sims_dir` (e.g., `hd_sims_dir = '/path/to/myHDsims'`) where you have saved both sets of maps mentioned above: the maps you would like to apply the FG cleaning to, and the maps used in the matched filter calculation.
+- The path to your `hd_sims_dir` (e.g., `hd_sims_dir = '/path/to/myHDsims'`) where you have saved both sets of maps mentioned above: the maps you would like to apply the FG cleaning to, and the maps used to quantify the noise in the matched filter calculation.
 
 
-`HDFGClean` also accepts additional, optional keyword arguments. The file `hdfgclean_defaults.yaml` provided here lists all of these options with their default values, and provides a brief description of each. We describe the most important ones in a more detail in (**TODO**) `run_hdfgclean.ipynb` (see **TODO**:link the "Using `HDFGClean` section below).
+`HDFGClean` also accepts additional, optional keyword arguments. The file `hdfgclean_defaults.yaml` provided here lists all of these options with their default values, and provides a brief description of each. We describe the most important ones in more detail in (**TODO**) `run_hdfgclean.ipynb` (see **TODO**:link the "Using `HDFGClean` section below).
 
 > **TODO** : explain that `HDFGClean` inherits from `HDSims`, `FGClean`, and `HDFGCleanMaps` - has same methods and accepts same arguments
 
@@ -181,8 +195,8 @@ hdfgcleanlib = hdfgclean.HDFGClean.from_config(config_file)
 The foreground cleaning can be run using the `run_hdfgclean` method of the `HDFGClean` class: e.g., once you have initialized the class as demonstrated above, you would just call `hdfgcleanlib.run_hdfgclean()` to run the full FG cleaning procedure. By default, after the maps have been FG-cleaned, the `run_hdfgclean` method will also:
 - Match the catalogs of detected point sources (CIB + radio) or clusters to the catalogs of all true point sources or clusters in the maps
 - Generate masks for any significant residual point sources or clusters remaining in the 90 and 148 GHz maps after FG cleaning
-- Take the power spectrum of the temperature maps (or any combination of their individual components) before or after FG cleaning, with or without applying a mask.
-- Generate the relevant plots of MacInnis et. al.
+- Take the power spectrum of the maps (or any combination of their individual components) before or after FG cleaning, with or without applying a mask.
+- Generate the relevant plots of MacInnis et. al. (2026)
 
 We provide a python script, `run_hdfgclean.py`, which you can use to run the FG cleaning. You must pass the path to your `config_file` which will be used to initialize `HDFGClean`. By default, e.g. if you run the command
 
@@ -206,13 +220,17 @@ We also provide (**TODO**: add this) a python notebook, `run_hdfgclean.ipynb`, w
 > **TODO** : *briefly* mention methods used to load (or generate/calculate/etc) in catalogs / maps / power spectra / etc
 
 
-### **TODO**: Using `FGClean` with any map(s)
+### Using `FGClean` with any map(s)
+
+**TODO**
 
 
 ---
 
 
-## **TODO** : Reproducing the results of MacInnis et. al.
+## Reproducing the results of MacInnis et. al. (2026)
+
+**TODO** 
 
 (in the `reproduce_10x10` directory)
 
@@ -220,7 +238,9 @@ We also provide (**TODO**: add this) a python notebook, `run_hdfgclean.ipynb`, w
 ---
 
 
-## **TODO**: Examples
+## Examples
+
+**TODO** 
 
 - 2x2 hdsims
 - example for using `FGClean`: either use 10x10 or 2x2 hd sims, but treat them as "general" maps to show them how to use other sims - then can show we get same results
