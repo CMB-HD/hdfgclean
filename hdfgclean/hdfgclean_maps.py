@@ -126,21 +126,22 @@ class HDFGCleanMaps(hdsims.HDSims, fgclean.FGClean):
         # additional keyword arguments:
         all_fgclean_kwargs = fgutils._get_all_kwargs(fgclean.FGClean)
         fgclean_kwargs = fgutils.dict_with_keys(kwargs, list(all_fgclean_kwargs.keys()))
+        noise_maps_kwargs = kwargs.get('noise_maps_kwargs', {})  
         # override / add our defaults
         noise_map_kwarg_names = ['hd_noise_sims_for_filters_dir', 'noise_maps_for_source_filters',
                                  'noise_maps_for_cluster_filters', 'noise_maps_for_source_mask_filters']
         if not any([key in fgclean_kwargs for key in noise_map_kwarg_names]):
             fgclean_kwargs['hd_noise_sims_for_filters_dir'] = hd_sims_dir
-        noise_maps_kwargs = kwargs.get('noise_maps_kwargs', {}) 
+            if self.lowres_sims_dir is not None: # required to generate sims for noise maps if they don't exist
+                noise_maps_kwargs['lowres_sims_dir'] = self.lowres_sims_dir
+        noise_maps_kwargs = {**noise_maps_kwargs, 'freqs': self.freqs, 'components': self.map_components, 
+                             'verbose': self.verbose, 'log': self.log}
         fgclean_kwargs = {**fgclean_kwargs, 'map_shape': self.padded_shape, 'map_wcs': self.padded_wcs,
                           'map_apod_width': self.map_apod_width, 
                           'subtract_sources': self.subtract_sources,
                           'subtract_clusters': self.subtract_clusters,
                           'calc_beam_solid_angle_funcs': True,
-                          'noise_maps_kwargs': {**noise_maps_kwargs, 'freqs': self.freqs, 
-                                                'components': self.map_components, 
-                                                'verbose': self.verbose, 'log': self.log, 
-                                                'make_output_dirs': mpi.is_rank0}}
+                          'noise_maps_kwargs': noise_maps_kwargs} 
         # if subtracting clusters and not using default set of filters, need to provide `cluster_profiles_info`
         cluster_profiles = fgclean_kwargs.get('cluster_profiles', None)
         if self.subtract_clusters and (cluster_profiles is not None):

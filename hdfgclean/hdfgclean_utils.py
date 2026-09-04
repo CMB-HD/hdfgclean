@@ -300,8 +300,7 @@ def print_instructions_to_download_hdsims(hd_sims_dir, hdfgclean_repo_dir=None):
     if not files_are_saved:
         if hdfgclean_repo_dir is None:
             hdfgclean_repo_dir = _get_default_hdfgclean_repo_dir()
-        bash_fname = os.path.join(os.path.join(hdfgclean_repo_dir, 'reproduce_10x10'),
-                                  'download_all_HDsims_data.sh')
+        bash_fname = os.path.join(hdfgclean_repo_dir,  'download_all_HDsims_data.sh')
         print("\nTo download the HD simulation files, run the following command:\n")
         print(f"    bash {bash_fname} {hd_sims_dir}")
     else:

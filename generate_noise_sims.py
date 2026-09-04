@@ -1,4 +1,5 @@
 import os
+import sys
 import argparse
 from hdsims import hdsims, utils
 from hdfgclean import fgclean_info as fgi, hdfgclean_utils
@@ -11,12 +12,12 @@ parser.add_argument('--lowres-sims-dir', default=None, help='Path to the full-sk
 parser.add_argument('--pol', action='store_true', help="Whether to generate CMB polarization (Q and U) maps in addition to the temperature map")
 args = parser.parse_args()
 
-# --- run hdsims: ---
-
-# check if the lower-resolution maps have been saved:
-bash_file_to_run = hdfgclean_utils.save_commands_to_download_s10_files(args.hd_sims_dir, verbose=True)
-if bash_file_to_run is not None:
-    print(f"\nAfter downloading the necessary lower-resolution simulation files, re-run this python script.")
+# check if the lower-resolution maps and catalogs for the patch have been saved:
+if args.lowres_sims_dir is None: 
+    bash_file_to_run = hdfgclean_utils.save_commands_to_download_s10_files(args.hd_sims_dir, verbose=True)
+    if bash_file_to_run is not None:
+        print(f"\nAfter downloading the necessary lower-resolution simulation files, re-run this python script.")
+        sys.exit()
 
 # initialize the HDSims class:
 log = utils.get_logger(name='hdsims', fmt="{message:s}") # use logging to print out messages as they are logged
