@@ -24,7 +24,7 @@ The rest of this readme contains the following sections:
   - [Using MPI (strongly recommended)](#using-mpi-strongly-recommended)
   - [Using `HDFGClean` with `hdsims`](#using-hdfgclean-with-hdsims)
     - [Before using `HDFGClean`](#before-using-hdfgclean)
-    - [Initializing `HDFGClean`](#initializing-using-hdfgclean)
+    - [Initializing `HDFGClean`](#initializing-hdfgclean)
     - [Using `HDFGClean`](#using-hdfgclean)
   - [Using `FGClean` with any map(s)](#using-fgclean-with-any-maps)
 - [Reproducing the results of MacInnis et. al. (2026)](#reproducing-the-results-of-macinnis-et-al-2026)
