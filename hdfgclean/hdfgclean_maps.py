@@ -78,8 +78,10 @@ class HDFGCleanMaps(hdsims.HDSims, fgclean.FGClean):
             output_dir, _ = os.path.split(config_fname)
         config['output_dir'] = output_dir
         if mpi.is_rank0:
+            config_dir, _ = os.path.split(config_fname)
+            utils.mkdir(config_dir)
             utils.save_yaml(config_fname, config, overwrite=overwrite)
-            print(f'saved config file to {config_fname}')
+            print(f'Configuration file has been saved to {config_fname}')
         mpi.comm.barrier()
 
 

@@ -1,3 +1,5 @@
+"""Utilities for MPI."""
+
 from copy import deepcopy
 import warnings
 

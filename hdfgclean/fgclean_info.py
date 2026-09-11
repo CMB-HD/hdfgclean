@@ -1,3 +1,5 @@
+"""Define defaults for foreground cleaning."""
+
 import os
 import numpy as np
 from hdsims import siminfo as si, simutils
@@ -16,7 +18,6 @@ rms_nsigma = 3
 rms_smooth = True
 rms_smooth_pix = None
 rms_fixed_gw = False
-rms_use_overlap_pix = True
 rms_gw_sources = 10 # arcmin
 rms_gw_clusters = 40 # arcmin
 

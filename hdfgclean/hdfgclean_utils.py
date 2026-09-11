@@ -38,6 +38,7 @@ def print_instructions_to_reproduce_10x10(config_file, num_mpi_processes_fgclean
     if not sim_files_saved:
         raise FileNotFoundError("You must save the simulation files before running FG cleaning.")
     # if they have been, print out the instructions:
+    print("There are two ways to run the FG cleaning.\n")
     print(f"Option 1 (recommended): run each step separately")
     print(f"  First, run the FG cleaning procedure on the maps to remove CIB and radio point sources and tSZ clusters:\n")
     print(f"      {_command_to_reproduce_10x10(config_file, take_power=False, match=False, plots=False, num_mpi_processes=num_mpi_processes_fgclean, hdfgclean_repo_dir=hdfgclean_repo_dir)}\n")
@@ -50,6 +51,7 @@ def print_instructions_to_reproduce_10x10(config_file, num_mpi_processes_fgclean
     if num_mpi_processes_fgclean > num_mpi_processes_spectra:
         print("NOTE that taking the power spectra of the full maps requires much more memory than the other steps, so we recommend at least running "
               "that step separately, either by decreasing the number of MPI processes or increasing the number of compute nodes used.") 
+    print("\nAfter the command(s) above have completed successfully, you may proceed to the following notebook cells.")
 
 
 
@@ -381,3 +383,4 @@ def compare_10x10_spectra(fgcleanlib, fdiff_tol=0.01):
         max_fdiff = np.max(fdiff)
         print(f'  Your coadded residual FG + noise power spectrum does not match the precomputed spectrum'
               f' (average fractional difference is {avg_fdiff:5.2f} % ; min. = {min_fdiff:5.2f} %, max. = {max_fdiff:5.2f} %)')
+

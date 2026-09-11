@@ -95,8 +95,10 @@ class FGClean:
             output_dir, _ = os.path.split(config_fname)
         config['output_dir'] = output_dir
         if mpi.is_rank0:
+            config_dir, _ = os.path.split(config_fname)
+            utils.mkdir(config_dir)
             utils.save_yaml(config_fname, config, overwrite=overwrite)
-            print(f'saved config file to {config_fname}')
+            print(f'Configuration file has been saved to {config_fname}')
         mpi.comm.barrier()
 
 
@@ -937,8 +939,7 @@ class FGClean:
         freqs = self.freqs if (freqs is None) else self._validate_freqs(freqs)
         catalog_for_mask = self._get_sources_to_mask_before_fgclean_catalog(patch_num=patch_num)
         if patch_num is not None:
-            shape = self.patches.patch_info[patch_num]['padded_shape']
-            wcs = self.patches.patch_info[patch_num]['padded_wcs']
+            shape, wcs = self.patches.get_patch_geometry(patch_num=patch_num, padded=True)
         else:
             shape = self.map_shape
             wcs = self.map_wcs
@@ -960,8 +961,7 @@ class FGClean:
     def _get_sn_map_mask_for_clusters(self, patch_num=None, apodize=True):
         catalog_for_mask = self._get_sources_to_mask_before_fgclean_catalog(patch_num=patch_num)
         if patch_num is not None:
-            shape = self.patches.patch_info[patch_num]['padded_shape']
-            wcs = self.patches.patch_info[patch_num]['padded_wcs']
+            shape, wcs = self.patches.get_patch_geometry(patch_num=patch_num, padded=True)
         else:
             shape = self.map_shape
             wcs = self.map_wcs
@@ -1270,11 +1270,10 @@ class FGClean:
             # calculate a new filter for point sources using a new noise map, if possible
             # (use `noise_maps_for_source_mask_filters` if provided ; or `noise_maps_for_source_filters` if provided ; or the fgcleaned map itself)
             source_filter_kwargs = {key: self.sources_kwargs[key] for key in ['apply_apod', 'smooth_p2d_npix', 'rms_gw', 'rms_niter', 'rms_nsigma']}
-            source_filter_kwargs['apod_width'] = self.patch_apod_width
             source_filter_kwargs['mask'] = imap_mask
             beam_fwhms = self._patch_beam_fwhms(patch_num=patch_num)
             noise_map_for_source_mask_filter = self._get_patch_noise_maps_for_source_mask_filters(freq, patch_num=patch_num)
-            source_filter_for_mask = fgfilters.PointSourceFilter(beam_fwhms[freq], noise_map_for_source_mask_filter, **source_filter_kwargs)
+            source_filter_for_mask = fgfilters.PointSourceFilter(beam_fwhms[freq], noise_map_for_source_mask_filter, self.patch_apod_width, **source_filter_kwargs)
             mask = fgmasks.make_source_mask(fgcleaned_map, source_filter_for_mask, apod_width=0,
                                     snr_threshold=mask_snr_threshold, use_abs_sn=mask_abs_snr,
                                     snr_threshold_below=mask_snr_threshold_below)
@@ -1326,8 +1325,7 @@ class FGClean:
     def _get_large_clusters_mask(self, patch_num=None, apodize=True):
         catalog_for_mask = self._get_clusters_to_mask_after_fgclean_catalog(patch_num=patch_num)
         if patch_num is not None:
-            shape = self.patches.patch_info[patch_num]['padded_shape']
-            wcs = self.patches.patch_info[patch_num]['padded_wcs']
+            shape, wcs = self.patches.get_patch_geometry(patch_num=patch_num, padded=True)
         else:
             shape = self.map_shape
             wcs = self.map_wcs

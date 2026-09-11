@@ -254,7 +254,7 @@ class HDFGClean(hdfgclean_results.HDFGCleanResults):
         else:
             fname = None
         
-        self.infomsg(f"plotting {plt_component_label}+Noise maps before and after FG cleaning for {freqs = }")
+        self.infomsg(f"plotting {plt_component_label} maps before and after FG cleaning for {freqs = }")
         map_kwargs = {'components': plt_components, 'beam': True, 'noise': noise}
         if patch_num is not None:
             patch_shape, patch_wcs = self.patches.get_patch_geometry(patch_num=patch_num, padded=False)
