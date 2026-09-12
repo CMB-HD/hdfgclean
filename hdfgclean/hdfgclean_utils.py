@@ -444,6 +444,27 @@ def print_hdfgclean_example_instructions(config_file, hdfgclean_repo_dir=None):
           " you may proceed to the following notebook cells.")
 
 
+def all_2x2fgclean_files_are_saved(fgcleanlib, config_file, hdfgclean_repo_dir=None):
+    maps_are_fgcleaned = fgcleanlib.all_patches_fgcleaned()
+    matched = fgcleanlib.all_matched_patch_catalogs_saved()
+    spectra_saved = spectra_files_for_plots_are_saved(fgcleanlib, verbose=False)
+    all_files_saved = maps_are_fgcleaned and matched and spectra_saved
+    if all_files_saved:
+        print(f"All FG cleaning output has been saved.")
+    else:
+        if not maps_are_fgcleaned:
+            print("The FG-cleaned maps and catalogs of detected sources and clusters have not been saved.")
+        else:
+            if not matched:
+                print("The output of matching the catalogs of detected sources and clusters to the true catalogs has not been saved.")
+            if not spectra_saved:
+                print("The power spectra has not been saved.")
+        print("To run the FG cleaning, follow these instructions:\n")
+        print_hdfgclean_example_instructions(config_file, hdfgclean_repo_dir=hdfgclean_repo_dir)
+    return all_files_saved
+
+
+
 def compare_10x10_spectra(fgcleanlib, fdiff_tol=0.01):
     # NOTE : only intended to use in the `reproduce10x10.ipynb` notebook
 
@@ -454,7 +475,7 @@ def compare_10x10_spectra(fgcleanlib, fdiff_tol=0.01):
     # compare with products provided in the `HDMockData` repository:
     datalib = hd_data.HDMockData(version='v1.2')
     # for spectra:
-    kwargs = {'beam': True, 'bin_dl': True, 'mask': True, 'subtract_sources': True, 'subtract_clusters': True}
+    kwargs = {'beam': True, 'bin_dl': True, 'bin_cl': False, 'mask': True, 'subtract_sources': True, 'subtract_clusters': True}
     lmax = datalib.lmax
     fg_keys = {'tsz': ['tsz'], 'cib_radio': ['cib', 'radio']}
     fg_names = {'tsz': 'tSZ', 'cib_radio': 'CIB + Radio'}
@@ -474,13 +495,14 @@ def compare_10x10_spectra(fgcleanlib, fdiff_tol=0.01):
             #fdiff = utils.get_fdiff(dlbin, fg_dltt[lbin.astype(int)])
             avg_fdiff = np.mean(fdiff)
             if abs(avg_fdiff) <= fdiff_tol:
-                print(f"  Success! Your {freq} GHz residual {fg_names[component]} power spectrum matches the precomputed spectrum"
-                      f" (average fractional difference is {avg_fdiff:5.2f} %)")
+                print(f"  Success! Your {freq} GHz residual {fg_names[component]} power spectrum matches "
+                      f"the precomputed spectrum (average fractional difference is {avg_fdiff:5.2f} %)")
             else:
                 min_fdiff = np.min(fdiff)
                 max_fdiff = np.max(fdiff)
-                print(f'  Your {freq} GHz residual {fg_names[component]} power spectrum does not match the precomputed spectrum'
-                      f' (average fractional difference is {avg_fdiff:5.2f} % ; min. = {min_fdiff:5.2f} %, max. = {max_fdiff:5.2f} %)')
+                print(f'  Your {freq} GHz residual {fg_names[component]} power spectrum does not match '
+                      f'the precomputed spectrum (average fractional difference is {avg_fdiff:5.2f} % ; '
+                      f'min. = {min_fdiff:5.2f} %, max. = {max_fdiff:5.2f} %)')
         # total FG + noise:
         fg_noise_cls = datalib.noise_cls(freq)
         fg_noise_dltt = utils.cl2dl(fg_noise_cls['ells'], fg_noise_cls['tt'])
@@ -509,6 +531,75 @@ def compare_10x10_spectra(fgcleanlib, fdiff_tol=0.01):
     # compare:
     #fdiff = utils.get_fdiff(dlbin, coadd_noise_dls[lbin.astype(int)])
     fdiff = utils.get_fdiff(dlbin, (coadd_noise_dls[lbin.astype(int)] + coadd_noise_dls[lbin.astype(int)+1])/2)
+    avg_fdiff = np.mean(fdiff)
+    if abs(avg_fdiff) <= fdiff_tol:
+        print(f"  Success! Your coadded residual FG + noise power spectrum matches the precomputed spectrum"
+              f" (average fractional difference is {avg_fdiff:5.2f} %)")
+    else:
+        min_fdiff = np.min(fdiff)
+        max_fdiff = np.max(fdiff)
+        print(f'  Your coadded residual FG + noise power spectrum does not match the precomputed spectrum'
+              f' (average fractional difference is {avg_fdiff:5.2f} % ; min. = {min_fdiff:5.2f} %, max. = {max_fdiff:5.2f} %)')
+
+
+def compare_2x2_spectra(fgcleanlib, fdiff_tol=0.01):
+    # NOTE : only intended to use in the `example_2x2.ipynb` notebook
+    dir_name = 'precomputed_2x2_example_spectra'
+    precomputed_spectra_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), dir_name)
+    precomputed_spectra_fname = lambda fname: os.path.join(precomputed_spectra_dir, os.path.split(fname)[1])
+    # for sim spectra:
+    kwargs = {'beam': True, 'bin_dl': True, 'mask': True, 'subtract_sources': True, 'subtract_clusters': True}
+    fg_keys = {'tsz': ['tsz'], 'cib_radio': ['cib', 'radio']}
+    fg_names = {'tsz': 'tSZ', 'cib_radio': 'CIB + Radio'}
+    # at each freq:
+    for freq in fgi.spectra_freqs:
+        # residual tSZ, CIB+radio:
+        for component, components_list in fg_keys.items():
+            # sim spectra:
+            sim_spectra = fgcleanlib.get_sim_power(freq=freq, components=components_list, noise=False, bin_cl=False, **kwargs)
+            # precomputed:
+            sim_fname = fgcleanlib.get_sim_power_fname(freq=freq, components=components_list, noise=False, **kwargs)
+            fname = precomputed_spectra_fname(sim_fname)
+            _, precomputed_dlbin = np.loadtxt(fname, unpack=True)
+            # compare:
+            fdiff = utils.get_fdiff(sim_spectra['dltt'], precomputed_dlbin)
+            avg_fdiff = np.mean(fdiff)
+            if abs(avg_fdiff) <= fdiff_tol:
+                print(f"  Success! Your {freq} GHz residual {fg_names[component]} power spectrum matches "
+                      f"the precomputed spectrum (average fractional difference is {avg_fdiff:5.2f} %)")
+            else:
+                min_fdiff = np.min(fdiff)
+                max_fdiff = np.max(fdiff)
+                print(f'  Your {freq} GHz residual {fg_names[component]} power spectrum does not match '
+                      f'the precomputed spectrum (average fractional difference is {avg_fdiff:5.2f} % ; '
+                      f'min. = {min_fdiff:5.2f} %, max. = {max_fdiff:5.2f} %)')
+        # total FG + noise:
+        # sim spectra:
+        sim_spectra = fgcleanlib.get_sim_power(freq=freq, components=['ksz', 'tsz', 'cib', 'radio'], noise=True, bin_cl=False, **kwargs)
+        # precomputed:
+        sim_fname = fgcleanlib.get_sim_power_fname(freq=freq, components=['ksz', 'tsz', 'cib', 'radio'], noise=True, **kwargs)
+        fname = precomputed_spectra_fname(sim_fname)
+        _, precomputed_dlbin = np.loadtxt(fname, unpack=True)
+        # compare:
+        fdiff = utils.get_fdiff(sim_spectra['dltt'], precomputed_dlbin)
+        avg_fdiff = np.mean(fdiff)
+        if abs(avg_fdiff) <= fdiff_tol:
+            print(f"  Success! Your {freq} GHz residual FG + noise power spectrum matches the precomputed spectrum"
+                  f" (average fractional difference is {avg_fdiff:5.2f} %)")
+        else:
+            min_fdiff = np.min(fdiff)
+            max_fdiff = np.max(fdiff)
+            print(f'  Your {freq} GHz residual FG + noise power spectrum does not match the precomputed spectrum'
+                  f' (average fractional difference is {avg_fdiff:5.2f} % ; min. = {min_fdiff:5.2f} %, max. = {max_fdiff:5.2f} %)')
+    # coadded total FG + noise:
+    # sim spectra:
+    sim_spectra = fgcleanlib.get_coadded_fgcleaned_sim_power(cl=False, dl=True)
+    # precomputed:
+    sim_fname = fgcleanlib.get_coadded_fgcleaned_sim_power_fname(dl=True)
+    fname = precomputed_spectra_fname(sim_fname)
+    _, precomputed_dlbin = np.loadtxt(fname, unpack=True)
+    # compare:
+    fdiff = utils.get_fdiff(sim_spectra['dltt'], precomputed_dlbin)
     avg_fdiff = np.mean(fdiff)
     if abs(avg_fdiff) <= fdiff_tol:
         print(f"  Success! Your coadded residual FG + noise power spectrum matches the precomputed spectrum"
