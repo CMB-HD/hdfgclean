@@ -24,7 +24,7 @@ fgcleanlib = hdfgclean.HDFGClean.from_config(args.config_file, log=log)
 if args.test:
     log.info(f"[MPI rank {mpi.rank:2d}] Successfully initialized `HDFGClean` from `{args.config_file}`.")
     if mpi.is_rank0: # print out how many smaller patches there are in the map
-        log.info(f"The map will be divided into {fgcleanlib.patches.num_patches} smaller patches when running FG cleaning.")
+        log.info(f"The map will be divided into {fgcleanlib.patches.num_patches} smaller patche(s) when running FG cleaning.")
 
 else: # run FG cleaning:
     t = time.time() # time it

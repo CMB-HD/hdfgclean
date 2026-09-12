@@ -52,10 +52,8 @@ log: null
 # NOTE: the remaining settings may be changed, but we recommend that you use the default values
 # (which are the only ones guaranteed to have been thoroughly tested)
 
-# ** general FG cleaning ** (passed to `hdfgclean.fgclean.FGClean`):
-rms_niter: 10
-rms_nsigma: 3
-smooth_p2d_npix: 3
+
+# ** FG cleaning ** (passed to `hdfgclean.fgclean.FGClean`):
 
 # CIB and radio point sources:
 subtract_sources: true
@@ -140,6 +138,10 @@ cluster_profiles_info: null
 # distance will be subtracted from the map until the next iteration
 clusters_iter_match_radius: 1
 
+# general FG cleaning (used for both point sources and clusters):
+rms_niter: 10
+rms_nsigma: 3
+smooth_p2d_npix: 3
 
 # for the maps used as the noise (i.e., everything in the map besides the 
 # signal we want to remove) in the matched filter calculations:

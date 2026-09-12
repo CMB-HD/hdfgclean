@@ -2,7 +2,7 @@ import os
 import numpy as np
 from hd_mock_data import hd_data
 from hdsims import hdsims, siminfo as si, utils, simutils, hdsimsutils
-from . import fgclean_info as fgi
+from . import fgclean_info as fgi, fgutils
 
 
 def _get_default_hdfgclean_repo_dir():
@@ -29,7 +29,10 @@ def _command_to_reproduce_10x10(config_file, take_power=True, match=True, plots=
     return ' '.join(cmd_list)
 
 
-def print_instructions_to_reproduce_10x10(config_file, num_mpi_processes_fgclean=25, num_mpi_processes_spectra=2, hdfgclean_repo_dir=None):
+def print_instructions_to_reproduce_10x10(config_file,
+                                          num_mpi_processes_fgclean=25,
+                                          num_mpi_processes_spectra=2,
+                                          hdfgclean_repo_dir=None):
     # check if the sims have been saved:
     hd_sims_dir = utils.load_yaml(config_file)['hd_sims_dir']
     hdsims_are_saved = hdsims_files_are_saved(hd_sims_dir)
@@ -38,20 +41,42 @@ def print_instructions_to_reproduce_10x10(config_file, num_mpi_processes_fgclean
     if not sim_files_saved:
         raise FileNotFoundError("You must save the simulation files before running FG cleaning.")
     # if they have been, print out the instructions:
+    cmd_for_fg_cleaning = _command_to_reproduce_10x10(config_file, take_power=False,
+                                                      match=False, plots=False,
+                                                      num_mpi_processes=num_mpi_processes_fgclean,
+                                                      hdfgclean_repo_dir=hdfgclean_repo_dir)
+    cmd_for_matching = _command_to_reproduce_10x10(config_file, take_power=False,
+                                                   match=True, plots=False,
+                                                   num_mpi_processes=num_mpi_processes_fgclean,
+                                                   hdfgclean_repo_dir=hdfgclean_repo_dir)
+    cmd_for_spectra = _command_to_reproduce_10x10(config_file, take_power=True,
+                                                  match=False, plots=False,
+                                                  num_mpi_processes=num_mpi_processes_spectra,
+                                                  hdfgclean_repo_dir=hdfgclean_repo_dir)
+    cmd_for_all = _command_to_reproduce_10x10(config_file, take_power=True,
+                                              match=True, plots=True,
+                                              num_mpi_processes=num_mpi_processes_fgclean,
+                                              hdfgclean_repo_dir=hdfgclean_repo_dir)
     print("There are two ways to run the FG cleaning.\n")
-    print(f"Option 1 (recommended): run each step separately")
-    print(f"  First, run the FG cleaning procedure on the maps to remove CIB and radio point sources and tSZ clusters:\n")
-    print(f"      {_command_to_reproduce_10x10(config_file, take_power=False, match=False, plots=False, num_mpi_processes=num_mpi_processes_fgclean, hdfgclean_repo_dir=hdfgclean_repo_dir)}\n")
-    print("  After the first command has successfully completed, match the catalogs of detected sources/clusters to the true catalogs by running\n")
-    print(f"      {_command_to_reproduce_10x10(config_file, take_power=False, match=True, plots=False, num_mpi_processes=num_mpi_processes_fgclean, hdfgclean_repo_dir=hdfgclean_repo_dir)}\n")
-    print("  and take the power spectra of the maps after FG cleaning and save the plots by running\n")
-    print(f"      {_command_to_reproduce_10x10(config_file, take_power=True, match=False, plots=False, num_mpi_processes=num_mpi_processes_spectra, hdfgclean_repo_dir=hdfgclean_repo_dir)}\n")
-    print(f"\nOption 2: run everything with the following command:\n")
-    print(f"      {_command_to_reproduce_10x10(config_file, take_power=True, match=True, plots=True, num_mpi_processes=num_mpi_processes_fgclean, hdfgclean_repo_dir=hdfgclean_repo_dir)}\n")
+    print("Option 1 (recommended): run each step separately")
+    print("  First, run the FG cleaning procedure on the maps to remove CIB"
+          " and radio point sources and tSZ clusters:\n")
+    print(f"      {cmd_for_fg_cleaning}\n")
+    print("  After the first command has successfully completed, match the "
+          "catalogs of detected sources/clusters to the true catalogs by running\n")
+    print(f"      {cmd_for_matching}\n")
+    print("  and take the power spectra of the maps after FG cleaning and "
+          "save the plots by running\n")
+    print(f"      {cmd_for_spectra}\n")
+    print("\nOption 2: run everything with the following command:\n")
+    print(f"      {cmd_for_all}\n")
     if num_mpi_processes_fgclean > num_mpi_processes_spectra:
-        print("NOTE that taking the power spectra of the full maps requires much more memory than the other steps, so we recommend at least running "
-              "that step separately, either by decreasing the number of MPI processes or increasing the number of compute nodes used.") 
-    print("\nAfter the command(s) above have completed successfully, you may proceed to the following notebook cells.")
+        print("NOTE that taking the power spectra of the full maps requires "
+              "much more memory than the other steps, so we recommend at least "
+              "running that step separately, either by decreasing the number "
+              "of MPI processes or increasing the number of compute nodes used.")
+    print("\nAfter the command(s) above have completed successfully, "
+          "you may proceed to the following notebook cells.")
 
 
 
@@ -260,11 +285,15 @@ def print_instructions_to_generate_noise_sims(hd_sims_dir, hdfgclean_repo_dir=No
         print(f"You may proceed: all maps needed to calculate the matched filters have been saved.")
 
 
-def _missing_hdsims_files(hd_sims_dir, verbose=False, make_output_dirs=False):
+def _missing_hdsims_files(hd_sims_dir, verbose=False, make_output_dirs=False,
+                          need_catalogs=True, **kwargs):
     """Checks for if the HD simulation files are saved; returns a
     dictionary of missing file names.
+
+    `kwargs` are passed to `HDSims` (should not include `verbose` and `make_output_dirs`)
     """
-    simlib = hdsims.HDSims(hd_sims_dir, freqs=fgi.freqs, pol=False, make_output_dirs=make_output_dirs)
+    kwargs = {**kwargs, 'freqs': fgi.freqs, 'pol': False, 'make_output_dirs': make_output_dirs}
+    simlib = hdsims.HDSims(hd_sims_dir, **kwargs)
     missing_files = {}
     for component in simlib.map_components:
         freqs = simlib.freqs if simutils.has_freq_dependent_component(component) else [None]
@@ -278,23 +307,27 @@ def _missing_hdsims_files(hd_sims_dir, verbose=False, make_output_dirs=False):
                 map_info = f'{freq} GHz {component} map' if (freq is not None) else f'{component} map'
                 missing_files[map_info] = fname
     # catalogs:
-    catalog_components = ['tsz', 'cib', 'radio']
-    for component in catalog_components:
-        fname = simlib.get_catalog_fname(component)
-        if not os.path.exists(fname):
-            missing_files[f'{component} catalog'] = fname
+    if need_catalogs:
+        catalog_components = ['tsz', 'cib', 'radio']
+        for component in catalog_components:
+            fname = simlib.get_catalog_fname(component)
+            if not os.path.exists(fname):
+                missing_files[f'{component} catalog'] = fname
     # print out which files are not saved:
     if verbose and (len(missing_files) > 0):
-        print('\n\nThe following simulation files were not found:')
+        print('The following simulation files were not found:')
         for file_info, fname in missing_files.items():
             print(f'  {file_info:18s} : {fname}')
     return missing_files
 
 
-def hdsims_files_are_saved(hd_sims_dir, verbose=True):
-    missing_files = _missing_hdsims_files(hd_sims_dir, verbose=verbose)
-    maps_are_saved = (len(missing_files) == 0)
-    return maps_are_saved
+def hdsims_files_are_saved(hd_sims_dir, verbose=True, need_catalogs=True, **kwargs):
+    """`kwargs` are passed to `HDSims`"""
+    kwargs = fgutils.dict_without_keys(kwargs, ['make_output_dirs'], copy=True)
+    missing_files = _missing_hdsims_files(hd_sims_dir, verbose=verbose, 
+                                          need_catalogs=need_catalogs, **kwargs)
+    files_are_saved = (len(missing_files) == 0)
+    return files_are_saved
 
 
 def print_instructions_to_download_hdsims(hd_sims_dir, hdfgclean_repo_dir=None):
@@ -307,6 +340,108 @@ def print_instructions_to_download_hdsims(hd_sims_dir, hdfgclean_repo_dir=None):
         print(f"    bash {bash_fname} {hd_sims_dir}")
     else:
         print(f"You may proceed: all HD simulation files have been saved.")
+
+
+def _cmds_to_download_2x2hdsims(hd_sims_dir):
+    git_repo_name = 'sim_files_for_example_notebooks'
+    git_repo_url = f'https://github.com/CMB-HD/{git_repo_name}.git'
+    # directories we need from the github repository:
+    sims_dir_name = 'ra6dec6_2x2deg_hdsims'
+    noise_dir_name = 'ra26dec6_2x2deg_hdsims'
+    # absolute path:
+    sims_dir = os.path.join(hd_sims_dir, sims_dir_name)
+    noise_dir = os.path.join(hd_sims_dir, noise_dir_name)
+    # relative path of files from github (relative to the `hd_sims_dir`):
+    sims_dir_repo_path = os.path.join(git_repo_name, sims_dir_name)
+    noise_dir_repo_path = os.path.join(git_repo_name, noise_dir_name)
+
+    # make sure the `hd_sims_dir` exists:
+    hd_sims_dir = utils.mkdir(hd_sims_dir)
+
+    # don't overwrite any existing directories:
+    if not os.path.exists(sims_dir):
+        cmds_for_sim_files = [f'mv {sims_dir_repo_path} .']
+    else: 
+        files_to_move = os.path.join(sims_dir_repo_path, '*.*')
+        destination = os.path.join(sims_dir_name, '')
+        cmds_for_sim_files = [f'mv {files_to_move} {destination}']
+        for dir_name in ['spectra', 'intermediate_maps']:
+            # make sure the sub-directory also exists:
+            utils.mkdir(os.path.join(sims_dir, dir_name))
+            # get the path relative to the `hd_sims_dir`:
+            dir_repo_path =  os.path.join(sims_dir_repo_path, dir_name)
+            # command to move the github files into the directory:
+            files_to_move = os.path.join(dir_repo_path, '*.*')
+            destination = os.path.join(os.path.join(sims_dir_name, dir_name), '')
+            cmds_for_sim_files.append(f'mv {files_to_move} {destination}')
+
+    if not os.path.exists(noise_dir):
+        cmd_for_noise_files = f'mv {noise_dir_repo_path} .'
+    else:
+        files_to_move = os.path.join(noise_dir_repo_path, '*.*')
+        destination = os.path.join(noise_dir_name, '')
+        cmd_for_noise_files = f'mv {files_to_move} {destination}'
+
+    # list of commands:
+    cmds = [f'cd {hd_sims_dir}', f'git clone {git_repo_url}',
+            *cmds_for_sim_files, cmd_for_noise_files, 
+            f'rm -rf {git_repo_name}']
+    return cmds
+
+
+def _save_commands_to_download_2x2hdsims(hd_sims_dir):
+    commands = '\n'.join(_cmds_to_download_2x2hdsims(hd_sims_dir))
+    fname = os.path.join(hd_sims_dir, 'download_hdfgclean_2x2example_files.sh')
+    with open(fname, 'w') as f:
+        f.write(commands)
+    return fname
+
+
+def hdsims_for_example_are_saved(hd_sims_dir, verbose=True):
+    if verbose:
+        print("Looking for the simulation files...")
+    sims_to_fgclean_kwargs = {'width': 2, 'height': 2, 'apod_width': 0.2}
+    sims_to_fgclean_saved = hdsims_files_are_saved(hd_sims_dir, verbose=verbose,
+                                                   **sims_to_fgclean_kwargs)
+    if verbose:
+        print("\nLooking for the map files needed to calculate the matched filters...")
+    sims_for_filters_kwargs = {**fgi.noise_map_kwargs, **sims_to_fgclean_kwargs}
+    sims_for_filters_saved = hdsims_files_are_saved(hd_sims_dir, verbose=verbose,
+                                                    need_catalogs=False,
+                                                    **sims_for_filters_kwargs)
+    all_files_saved = sims_to_fgclean_saved and sims_for_filters_saved
+    if verbose and all_files_saved:
+        print("\nAll files are saved.")
+    return all_files_saved
+
+
+def print_instructions_to_download_2x2hdsims(hd_sims_dir):
+    all_files_saved = hdsims_for_example_are_saved(hd_sims_dir, verbose=False)
+    if all_files_saved:
+        print("You may proceed: all necessary files have been saved.")
+    else:
+        bash_fname = _save_commands_to_download_2x2hdsims(hd_sims_dir)
+        print("\nTo download the HD simulation files, run the following command:\n")
+        print(f"    bash {bash_fname}")
+
+
+def print_hdfgclean_example_instructions(config_file, hdfgclean_repo_dir=None):
+    # check if the sims have been saved:
+    hd_sims_dir = utils.load_yaml(config_file)['hd_sims_dir']
+    sim_files_saved = hdsims_for_example_are_saved(hd_sims_dir, verbose=False)
+    if not sim_files_saved:
+        raise FileNotFoundError("You must save the simulation files before running FG cleaning.")
+    # if they have been, print out the instructions:
+    if hdfgclean_repo_dir is None:
+        hdfgclean_repo_dir = _get_default_hdfgclean_repo_dir()
+    py_file = os.path.join(hdfgclean_repo_dir, 'run_hdfgclean.py')
+    print("First, test initializing `HDFGClean` by running "
+          "the following command (outside of the notebook):\n")
+    print(f"    python {py_file} {config_file} --test")
+    print("\nThen, to run all FG cleaning steps, run the following command:\n")
+    print(f"    python {py_file} {config_file} --match --spectra --plots")
+    print("\nAfter the command above has completed successfully,"
+          " you may proceed to the following notebook cells.")
 
 
 def compare_10x10_spectra(fgcleanlib, fdiff_tol=0.01):

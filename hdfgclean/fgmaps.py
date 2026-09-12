@@ -76,7 +76,7 @@ def dist2npix(dist, shape, wcs, units='degrees'):
         dist = utils.rad2arcmin(dist)
     elif 'sec' in units.lower():
         dist /= 60
-    elif 'arcmin' not in unit:
+    elif 'arcmin' not in units.lower():
         raise ValueError(f"`{units = }`. The allowed units are `'degrees'`, `'radians'`, `'arcmin'`, or `'arcsec'`.")
     npix = round(dist / pixel_size)
     return npix
@@ -1331,7 +1331,7 @@ class MapPatches:
 
 
     def trim_patch_catalog(self, catalog, patch_num, padded=True,
-                           ra_col='RADeg', dec_key='decDeg'):
+                           ra_col='RADeg', dec_col='decDeg'):
         """Remove any rows from a catalog with coordinate positions
         outside of the given patch.
 

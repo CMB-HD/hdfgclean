@@ -271,7 +271,7 @@ class FGCleanSources(FGCleanSourcesFiles):
 
         self.filter = fgfilters.PointSourceFilter(self.beam_fwhm, noise_map_for_filter, self.apod_width,
                                                   rms_gw=rms_gw, rms_niter=rms_niter, rms_nsigma=rms_nsigma,
-                                                  apod_width=self.apod_width, apply_apod=apply_apod,
+                                                  apply_apod=apply_apod,
                                                   deconvolve_pixwin=True, smooth_p2d_npix=smooth_p2d_npix,
                                                   mask=mask_for_filtered_maps)
         self.snr_threshold_list = snr_threshold_list.copy()
