@@ -809,12 +809,12 @@ def divide_map_area_into_patches(shape, wcs, map_apod_width=0,
     ra_min, ra_max, dec_min, dec_max = maps.get_map_corner_coords(shape, wcs)
     ra_ctr, dec_ctr, width, height = maps.get_map_ctr_extent(shape, wcs)
 
+    unapod_width = width - 2 * apod_width
     # compare number of pixels (`int` instead of `float`)
     if dist2npix(width, shape, wcs) <= dist2npix(max_patch_size, shape, wcs):
-        patch_width = width
+        patch_width = unapod_width
         patch_ra_ctrs = np.array([ra_ctr])
     else:
-        unapod_width = width - 2 * apod_width
         num_patches_ra = 1
         # divide the un-apodized width in to `num_patches_ra` 
         # non-overlapping patches of equal width:
@@ -839,11 +839,11 @@ def divide_map_area_into_patches(shape, wcs, map_apod_width=0,
         max_patch_ra_ctr = ra_max - apod_width - patch_width / 2
         patch_ra_ctrs = np.linspace(min_patch_ra_ctr, max_patch_ra_ctr, num_patches_ra)
 
+    unapod_height = height - 2 * apod_width
     if dist2npix(height, shape, wcs) <= dist2npix(max_patch_size, shape, wcs):
-        patch_height = height
+        patch_height = unapod_height
         patch_dec_ctrs = np.array([dec_ctr])
     else:
-        unapod_height = height - 2 * apod_width
         num_patches_dec = 1
         patch_height = unapod_height / num_patches_dec
         max_patch_height = patch_height + apod_width + patch_apod_width

@@ -752,7 +752,7 @@ class HDFGCleanSpectra(hdfgclean_maps.HDFGCleanMaps):
                         **self._patch_kwargs_for_spectra(patch_num=patch_num)}
         # distribute calculation over mpi processes
         tasks = []
-        for freq in fgi.freqs:
+        for freq in fgi.spectra_freqs:
             for mask in [False, True]:
                 tasks.append((freq, mask))
         task_indices = mpi.distribute(len(tasks), mpi.size, mpi.rank)
@@ -766,7 +766,7 @@ class HDFGCleanSpectra(hdfgclean_maps.HDFGCleanMaps):
                 self.infomsg(f"taking power of {freq} GHz CIB+radio on patch {patch_num} after removing sources "
                              f"with SNR >= {simutils.round_str(np.min(self.sources_snr_threshold_list))}")
                 sub_bright_srcs_spectra = self._get_bright_src_sub_spectra(freq, patch_num=patch_num,
-                                                                           bin_dl=bin_dl, bin_cl=bin_cl)
+                                                                           bin_dl=True, bin_cl=False)
             else:
                 # power of CIB+radio after subtracting all sources
                 self.infomsg(f"taking power of {freq} GHz CIB+radio on patch {patch_num} after FG cleaning")
