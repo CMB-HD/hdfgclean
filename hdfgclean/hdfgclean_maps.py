@@ -226,7 +226,9 @@ class HDFGCleanMaps(hdsims.HDSims, fgclean.FGClean):
         sim_fname = self.get_fgcleaned_sim_fname(freq=freq, beam=beam, noise=noise, 
                                                          subtract_sources=subtract_sources, subtract_clusters=subtract_clusters, **kwargs)
         if os.path.exists(sim_fname):
-            sim = enmap.read_map(sim_fname)
+            shape = self.get_kwarg('shape', **kwargs)
+            wcs = self.get_kwarg('wcs', **kwargs)
+            sim = enmap.project(enmap.read_map(sim_fname), shape, wcs)
         else:
             # get sim before subtraction:
             sim = super().get_sim(freq=freq, beam=beam, noise=noise, save=save, **kwargs)

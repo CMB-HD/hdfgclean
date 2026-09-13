@@ -270,6 +270,6 @@ Note that all (optional) keyword arguments that can be passed to the `HDFGClean`
 
 **TODO** 
 
-- 2x2 hdsims
-- example for using `FGClean`: either use 10x10 or 2x2 hd sims, but treat them as "general" maps to show them how to use other sims - then can show we get same results
+see the notebooks in the `examples` directory
+
 

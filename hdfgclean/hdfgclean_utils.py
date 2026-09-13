@@ -404,7 +404,7 @@ def hdsims_for_example_are_saved(hd_sims_dir, verbose=True):
     sims_to_fgclean_saved = hdsims_files_are_saved(hd_sims_dir, verbose=verbose,
                                                    **sims_to_fgclean_kwargs)
     if verbose:
-        print("\nLooking for the map files needed to calculate the matched filters...")
+        print("\nLooking for the maps needed to calculate the matched filters...")
     sims_for_filters_kwargs = {**fgi.noise_map_kwargs, **sims_to_fgclean_kwargs}
     sims_for_filters_saved = hdsims_files_are_saved(hd_sims_dir, verbose=verbose,
                                                     need_catalogs=False,
