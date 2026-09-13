@@ -459,7 +459,7 @@ class HDFGCleanSpectra(hdfgclean_maps.HDFGCleanMaps):
         if len(sim_ptsrc_components) > 0:
             sim_kwargs = {**kwargs, 'components': sim_ptsrc_components}
             self.get_sim_power(freq=freq, bin_cl=bin_cl, bin_dl=bin_dl, **sim_kwargs)
-        # cmb-only or noise-only (if `kwargs['noise']` is `False` or `True`, respectively ; default is `False`)
+        # cmb-only and ksz-only or noise-only (if `kwargs['noise']` is `False` or `True`, respectively ; default is `False`)
         subtract_sources = kwargs.get('subtract_sources', False)
         subtract_clusters = kwargs.get('subtract_clusters', False)
         subtract_fgs = subtract_sources or subtract_clusters
@@ -468,9 +468,13 @@ class HDFGCleanSpectra(hdfgclean_maps.HDFGCleanMaps):
         if (not subtract_fgs) or mask:
             if noise: # beam- and pixel-window-deconvolved
                 self.get_noise_sim_power(freq=freq, pixwin=True, bin_cl=bin_cl, bin_dl=bin_dl, **kwargs)
-            elif simutils.has_cmb(self.map_components):
-                sim_kwargs = {**kwargs, 'components': [simutils.cmb_component_name(self.map_components)]}
-                self.get_sim_power(freq=freq, bin_cl=bin_cl, bin_dl=bin_dl, **sim_kwargs)
+            else:
+                if simutils.has_cmb(self.map_components):
+                    sim_kwargs = {**kwargs, 'components': [simutils.cmb_component_name(self.map_components)]}
+                    self.get_sim_power(freq=freq, bin_cl=bin_cl, bin_dl=bin_dl, **sim_kwargs)
+                if 'ksz' in self.map_components:
+                    sim_kwargs = {**kwargs, 'components': ['ksz']}
+                    self.get_sim_power(freq=freq, bin_cl=bin_cl, bin_dl=bin_dl, **sim_kwargs)
 
 
 
