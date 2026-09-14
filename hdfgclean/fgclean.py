@@ -3,7 +3,6 @@ import warnings
 from copy import deepcopy
 import numpy as np
 import pandas as pd
-import yaml
 from pixell import enmap
 from hdsims import  utils, simutils, fgcatalogs, maps
 from . import mpi, fgclean_info as fgi, fgutils, fgmaps, fgfilters, iterfgclean, fgclean_sources, fgclean_clusters, fgmasks
@@ -12,17 +11,15 @@ from . import mpi, fgclean_info as fgi, fgutils, fgmaps, fgfilters, iterfgclean,
 class FGClean:
     
     @classmethod
-    def from_config(cls, config_fname, **kwargs):
+    def from_config(cls, config_fname, safe=True, **kwargs):
         '''
         config_fname is path to yaml file
         kwargs can be passed to overwrite anything in config file
             (but note we don't check to make sure changes make sense....)
 
-        NOTE : not using `yaml.safe_load` so we can load in, e.g., arrays, funcs, etc.
-               see pyyaml docs for why you should be careful doing this
+        NOTE : see `fgutils.load_yaml` for info about the `safe` kwarg
         '''
-        with open(config_fname, 'r') as f:
-            config = yaml.load(f, Loader=yaml.Loader)
+        config = fgutils.load_yaml(config_fname, safe=safe)
         # update `config` dict with any `kwargs`:
         config = {**config, **kwargs}
 

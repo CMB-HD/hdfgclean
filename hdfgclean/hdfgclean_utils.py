@@ -1,8 +1,231 @@
 import os
 import numpy as np
 from hd_mock_data import hd_data
-from hdsims import hdsims, siminfo as si, utils, simutils, hdsimsutils
-from . import fgclean_info as fgi, fgutils
+from hdsims import hdsims, siminfo as si, utils, simutils, hdsimsutils, maps
+from . import fgclean_info as fgi, fgutils, fgmaps
+
+
+def number_of_patches(hdfgclean_config_file, verbose=True, safe_load=True):
+    """NOTE: must be a config file for `HDFGClean` (not for `FGClean`)"""
+    config = fgutils.load_yaml(hdfgclean_config_file, safe=safe_load)
+    # info for patches:
+    max_patch_size = config.get('max_patch_size', fgi.max_patch_size)
+    patch_apod_width = config.get('patch_apod_width', fgi.patch_apod_width)
+    # geometry of maps to be FG cleaned:
+    ra_ctr = config.get('ra_ctr', si.ra_ctr)
+    dec_ctr = config.get('dec_ctr', si.dec_ctr)
+    width = config.get('width', si.width)
+    height = config.get('height', si.height)
+    res = config.get('res', si.hd_res)
+    if 'map_apod_width' in config:
+        map_apod_width = config['map_apod_width']
+    else:
+        map_apod_width = config.get('apod_width', si.apod_width)
+    map_width = width + 2 * map_apod_width
+    map_height = height + 2 * map_apod_width
+    map_shape, map_wcs = maps.get_shape_wcs(res, ra_ctr, dec_ctr, map_width, height=map_height)
+    
+    # calculate number and size of patches:
+    (patch_ra_ctrs, patch_dec_ctrs, 
+     patch_width, patch_height) = fgmaps.divide_map_area_into_patches(map_shape, map_wcs, 
+                                                                      map_apod_width=map_apod_width, 
+                                                                      max_patch_size=max_patch_size, 
+                                                                      patch_apod_width=patch_apod_width)
+    num_rows = len(patch_dec_ctrs)
+    num_cols = len(patch_ra_ctrs)
+    num_patches = num_rows * num_cols
+    if verbose:
+        w = simutils.round_str(patch_width, n=3)
+        h = simutils.round_str(patch_height, n=3)
+        print(f"The map(s) will be broken up in to {num_patches} smaller "
+              f"{w} degree x {h} degree patch(es) arranged in "
+              f"{num_rows} row(s) and {num_cols} column(s)")
+
+    return num_patches
+
+
+
+def _run_hdfgclean_cmd_root(config_file, safe_load=True, 
+                            masks=True, mask_freqs=fgi.spectra_freqs, 
+                            num_mpi_processes=None):
+    if num_mpi_processes is None:
+        # one MPI process per patch:
+        num_mpi_processes = number_of_patches(config_file, verbose=False, 
+                                              safe_load=safe_load)
+    cmd_parts = []
+    if num_mpi_processes > 1:
+        mpirun_cmd = f'mpirun -np {num_mpi_processes}'
+        cmd_parts.append(mpirun_cmd)
+    cmd_parts.append(f'python run_hdfgclean.py {os.path.abspath(config_file)}')
+    if not safe_load:
+        cmd_parts.append('--no_safe_load')
+    if masks:
+        cmd_parts.append('--masks')
+        if set(mask_freqs) != set(fgi.spectra_freqs):
+            freqs = ' '.join([str(freq) for freq in mask_freqs])
+            cmd_parts.append(f'--mask_freqs {freqs}')
+    cmd_root = ' '.join(cmd_parts)
+    return cmd_root
+
+
+def _run_hdfgclean_maps_cmd(config_file, save_maps=True, 
+                            masks=True, mask_freqs=fgi.spectra_freqs, 
+                            safe_load=True, num_mpi_processes=None):
+    root = _run_hdfgclean_cmd_root(config_file, safe_load=safe_load, 
+                                   masks=masks, mask_freqs=mask_freqs,
+                                   num_mpi_processes=num_mpi_processes)
+    cmd_parts = [root]
+    if save_maps:
+        cmd_parts.append('--savemaps')
+    cmd = ' '.join(cmd_parts)
+    return cmd
+
+
+def _run_hdfgclean_match_cmd(config_file, match_freqs=None, 
+                             masks=True, mask_freqs=fgi.spectra_freqs, 
+                             safe_load=True, num_mpi_processes=None):
+    root = _run_hdfgclean_cmd_root(config_file, safe_load=safe_load, 
+                                   masks=masks, mask_freqs=mask_freqs,
+                                   num_mpi_processes=num_mpi_processes)
+    cmd_parts = [root, '--match']
+    if match_freqs is not None:
+        if set(match_freqs) != set(fgi.freqs):
+            freqs = ' '.join([str(freq) for freq in match_freqs])
+            cmd_parts.append(f'--match_freqs {freqs}')
+    cmd = ' '.join(cmd_parts)
+    return cmd
+
+
+def _run_hdfgclean_spectra_cmd(config_file, spectra_freqs=None, plots=True,
+                               masks=True, mask_freqs=fgi.spectra_freqs, 
+                               safe_load=True, num_mpi_processes=2):
+    root = _run_hdfgclean_cmd_root(config_file, safe_load=safe_load, 
+                                   masks=masks, mask_freqs=mask_freqs,
+                                   num_mpi_processes=num_mpi_processes)
+    cmd_parts = [root, '--spectra']
+    if spectra_freqs is not None:
+        if set(spectra_freqs) != set(fgi.spectra_freqs):
+            freqs = ' '.join([str(freq) for freq in spectra_freqs])
+            cmd_parts.append(f'--spectra_freqs {freqs}')
+    if plots:
+        cmd_parts.append('--plots')
+    cmd = ' '.join(cmd_parts)
+    return cmd
+
+
+def _run_hdfgclean_plots_cmd(config_file, match=True, match_freqs=None, 
+                             spectra=True, spectra_freqs=None, 
+                             masks=True, mask_freqs=fgi.spectra_freqs, 
+                              safe_load=True, num_mpi_processes=1):
+    root_cmd = _run_hdfgclean_cmd_root(config_file, safe_load=safe_load, 
+                                       masks=masks, mask_freqs=mask_freqs,
+                                       num_mpi_processes=num_mpi_processes)
+    cmd_parts = [root_cmd, '--plots']
+    if match:
+        full_match_cmd = _run_hdfgclean_match_cmd(config_file, match_freqs=match_freqs, 
+                                                  masks=masks, mask_freqs=mask_freqs,
+                                                  safe_load=safe_load, 
+                                                  num_mpi_processes=num_mpi_processes)
+        match_cmd_info = full_match_cmd.strip(root_cmd)
+        cmd_parts.append(match_cmd_info)
+    if spectra:
+        full_spectra_cmd = _run_hdfgclean_spectra_cmd(config_file, spectra_freqs=spectra_freqs, 
+                                                    masks=masks, mask_freqs=mask_freqs,
+                                                    safe_load=safe_load, 
+                                                    num_mpi_processes=num_mpi_processes)
+        spectra_cmd_info = full_spectra_cmd.strip(root_cmd)
+        cmd_parts.append(spectra_cmd_info)
+    cmd = ' '.join(cmd_parts)
+    return cmd
+        
+    
+def print_run_hdfgclean_commands(config_file, safe_load=True,
+                                 save_maps=True, match=True, match_freqs=None, 
+                                 spectra=True, spectra_freqs=None, plots=True,
+                                 masks=True, mask_freqs=fgi.spectra_freqs, 
+                                 num_mpi_processes=None,
+                                 num_mpi_processes_spectra=2,
+                                ):
+    
+    # print out number of patches:
+    num_patches = number_of_patches(config_file, verbose=True, safe_load=safe_load)
+    if num_mpi_processes is None: # use default = one MPI process per patch
+        num_mpi_processes = num_patches
+   
+    # command for testing:
+    root_cmd = _run_hdfgclean_cmd_root(config_file, safe_load=safe_load,
+                                       masks=False, num_mpi_processes=num_mpi_processes)
+    test_cmd = f'{root_cmd} --test'
+    print("\n\nWe recommend that you test initializing `HDFGClean` first, by running "
+          "the following command (with or without MPI; this test can typically be "
+          "run on the login node of a cluster):\n")
+    print(f"  {test_cmd}\n\n")
+
+    # command to run fgcleaning:
+    fgclean_cmd = _run_hdfgclean_maps_cmd(config_file, safe_load=safe_load, 
+                                          save_maps=save_maps, masks=masks, 
+                                          mask_freqs=mask_freqs, 
+                                          num_mpi_processes=num_mpi_processes)
+    print("\nTo FG-clean the maps, run the following command:\n")
+    print(f"  {fgclean_cmd}\n")
+    
+    if match and spectra and plots: # run each separately
+        match_cmd = _run_hdfgclean_match_cmd(config_file, match_freqs=match_freqs, 
+                                             masks=masks, mask_freqs=mask_freqs,
+                                             safe_load=safe_load, 
+                                             num_mpi_processes=num_mpi_processes)
+        spectra_cmd = _run_hdfgclean_spectra_cmd(config_file, spectra_freqs=spectra_freqs, 
+                                               masks=masks, mask_freqs=mask_freqs,
+                                               plots=plots, safe_load=safe_load, 
+                                               num_mpi_processes=num_mpi_processes_spectra)
+        plot_cmd = _run_hdfgclean_plots_cmd(config_file, match=match, match_freqs=match_freqs, 
+                                            spectra=spectra, spectra_freqs=spectra_freqs, 
+                                            masks=masks, mask_freqs=mask_freqs,
+                                            safe_load=safe_load)
+        print("After the command above has completed successfully, run the "
+              "following two commands to calculate the power spectra and "
+              "match  the detected and true catalogs, respectively; these "
+              "may be run simultaneously:\n")
+        print(f"  {spectra_cmd}\n")
+        print(f"  {match_cmd}\n")
+        print("After both of those have successfully completed, run the "
+              "following command to make the plots:\n")
+        print(f"  {plot_cmd}\n")
+    
+    elif plots and not (match or spectra): # only plots
+        plot_cmd = _run_hdfgclean_plots_cmd(config_file, match=match, match_freqs=match_freqs, 
+                                            spectra=spectra, spectra_freqs=spectra_freqs, 
+                                            masks=masks, mask_freqs=mask_freqs,
+                                            safe_load=safe_load)
+        print("After the first command has completed successfully, "
+              "make the plots by running the following command:\n")
+        print(f"  {plot_cmd}\n")
+        
+    else:
+        # doesn't matter what order we run the rest in:
+        if match:
+            match_cmd = _run_hdfgclean_match_cmd(config_file, match_freqs=match_freqs, 
+                                                 masks=masks, mask_freqs=mask_freqs,
+                                                 safe_load=safe_load, 
+                                                 num_mpi_processes=num_mpi_processes)
+            if plots:
+                match_cmd = f'{match_cmd} --plots'
+            print("After the first FG-cleaning command has completed "
+                  "successfully, do the matching by running the "
+                  "following command:\n")
+            print(f"  {match_cmd}\n")
+        if spectra:
+            spectra_cmd = _run_hdfgclean_spectra_cmd(config_file, spectra_freqs=spectra_freqs, 
+                                                   masks=masks, mask_freqs=mask_freqs,
+                                                   plots=plots, safe_load=safe_load, 
+                                                   num_mpi_processes=num_mpi_processes_spectra)
+            print("After the first FG-cleaning command has completed "
+                  "successfully, calculate the power spectra by running "
+                  "the following command:\n")
+            print(f"  {spectra_cmd}\n")
+
+
+# --- for notebooks: ----
 
 
 def _get_default_hdfgclean_repo_dir():

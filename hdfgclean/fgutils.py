@@ -4,9 +4,50 @@ from copy import deepcopy
 from inspect import signature
 import numpy as np
 import pandas as pd
+import yaml
 import camb
 from hdsims import utils
 from . import mpi
+
+
+def load_yaml(fname, safe=True):
+    """Return a dictionary loaded from a YAML file.
+
+    Parameters
+    ----------
+    fname : str
+        The YAML file name.
+    safe : bool, default=True
+        By default (when `safe=True`), the YAML file is loaded by calling
+        `yaml.safe_load`. If `safe=False`, the file is loaded by calling
+        `yaml.load` and passing `Loader=yaml.Loader`. Please see the
+        "Notes" section before calling this function with `safe=False`.
+
+    Returns
+    -------
+    data : dict
+        The dictionary loaded from the YAML file.
+
+    See Also
+    --------
+    hdsims.utils.save_yaml
+
+    Notes
+    -----
+    Do NOT pass `safe=False` unless you are loading in a YAML file
+    from a trusted source! If `safe=False`, it is possible for
+    `yaml.load` to execute any arbitrary code that was saved in the file.
+    This may be desirable in some cases; e.g., it allows you to save and
+    load `numpy` arrays, which is not possible using `yaml.safe_load`.
+    See the warning under "Loading YAML" in the "Tutorial" section of the
+    `yaml` package documentation: https://pyyaml.org/wiki/PyYAMLDocumentation
+    """
+    with open(fname, 'r') as f:
+        if safe:
+            data = yaml.safe_load(f)
+        else:
+            data = yaml.load(f, Loader=yaml.Loader)
+    return data
 
 
 def dict_with_keys(idict, keys, copy=False):

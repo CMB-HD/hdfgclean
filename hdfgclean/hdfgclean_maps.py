@@ -11,17 +11,15 @@ from . import mpi, fgclean_info as fgi, fgutils, fgfilters, fgclean
 class HDFGCleanMaps(hdsims.HDSims, fgclean.FGClean):
     
     @classmethod
-    def from_config(cls, config_fname, **kwargs):
+    def from_config(cls, config_fname, safe=True, **kwargs):
         '''
         config_fname is path to yaml file
         kwargs can be passed to overwrite anything in config file
             (but note we don't check to make sure changes make sense....)
 
-        NOTE : not using `yaml.safe_load` so we can load in, e.g., arrays, funcs, etc.
-               see pyyaml docs for why you should be careful doing this
+        NOTE : see `fgutils.load_yaml` for info about the `safe` kwarg
         '''
-        with open(config_fname, 'r') as f:
-            config = yaml.load(f, Loader=yaml.Loader)
+        config = fgutils.load_yaml(config_fname, safe=safe)
         # update `config` dict with any `kwargs`:
         config = {**config, **kwargs}
 
