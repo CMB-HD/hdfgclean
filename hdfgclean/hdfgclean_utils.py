@@ -425,7 +425,7 @@ def _missing_s10_files_for_noise_maps(hd_sims_dir, verbose=False, make_output_di
 
 
 def _get_commands_to_download_s10_files(hd_sims_dir, verbose=False):
-    simlib = _hdsims_for_noise_maps(hd_sims_dir)
+    simlib = _hdsims_for_noise_maps(hd_sims_dir, make_output_dirs=True)
     missing_files = _missing_s10_files_for_noise_maps(hd_sims_dir, verbose=verbose)
     cmd_list = []
     for map_info, fname in missing_files.items():
