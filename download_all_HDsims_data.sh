@@ -1,9 +1,13 @@
 #!/bin/bash
 
-datadir=${1:-$(pwd)}
-echo "HD sims files will be placed in $datadir"
+SIMDIR=${1:-$(pwd)}
+echo "HD sims files will be placed in $SIMDIR"
 
-cd $datadir
+if [ ! -d "${SIMDIR}" ]; then
+  mkdir $SIMDIR
+fi
+
+cd $SIMDIR
 
 if [ ! -d "ra6dec6_10x10deg_hdsims" ]; then
   mkdir ra6dec6_10x10deg_hdsims

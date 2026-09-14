@@ -127,7 +127,7 @@ You **must** save the set of maps you wish to foreground-clean before initializi
 bash download_all_HDsims_data.sh /path/to/myHDsims
 ```
 
-where `/path/to/myHDsims` is the path to the directory where you would like to save the simulations (about 66 GB of files). You must then provide this path to the `HDFGClean` class.
+where `/path/to/myHDsims` is the path to the directory where you would like to save the simulations (about 66 GB of files). You must then provide this path to the `HDFGClean` class. Note that the bash script will make the `myHDsims` directory if it does not exist, but the parent directory (the `/path/to/` part) must exist.
 
 - Alternatively, you may generate a different set of simulations by following the instructions in [hdsims](https://github.com/CMB-HD/hdsims), and then initializing the `HDFGClean` class with the same arguments you passed to the `hdsims.hdsims.HDSims` class. (**TODO** : refer them to further instructions/details elsewhere)
 
@@ -144,7 +144,7 @@ and then generate the necessary higher-resolution maps (about 4 GB of files) by 
 python generate_noise_sims.py /path/to/myHDsims
 ```
 
-where the `download_s10sims_for_noise_maps.sh` and `generate_noise_sims.py` files are provided in this repository.
+where the `download_s10sims_for_noise_maps.sh` and `generate_noise_sims.py` files are provided in this repository. Note that the bash script will make the `myHDsims` directory if it does not exist, but the parent directory (the `/path/to/` part) must exist.
 
 
 **Note** that, if you do *not* follow these instructions, the first time you initialize the `HDFGClean` class, it will begin trying to generate the simulations. Then, one of two things will happen:
