@@ -1,1 +1,2 @@
 recursive-include hdfgclean/catalogs_for_noise_maps *
+recursive-include hdfgclean/precomputed_hd_fisher_matrices *
