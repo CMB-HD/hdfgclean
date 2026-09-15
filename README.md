@@ -27,6 +27,8 @@ The rest of this readme contains the following sections:
     - [Initializing `HDFGClean`](#initializing-hdfgclean)
     - [Using `HDFGClean`](#using-hdfgclean)
   - [Using `FGClean` with any map(s)](#using-fgclean-with-any-maps)
+    - [Initializing `FGClean`](#initializing-fgclean)
+    - [Using `FGClean`](#using-fgclean)
 - [Reproducing the results of MacInnis et. al. (2026)](#reproducing-the-results-of-macinnis-et-al-2026)
 - [Examples](#examples)
 
