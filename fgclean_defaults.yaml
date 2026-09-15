@@ -1,52 +1,96 @@
-beam_solid_angle_funcs: null
-calc_beam_solid_angle_funcs: true
-cluster_profiles: null
-cluster_profiles_info: null
-clusters_iter_match_radius: 1
-clusters_rms_gw: 40
-clusters_snr_threshold_list:
-- 50
-- 25
-- 15
-- 12.5
-- 10
-- 7.5
-- 5
-- 4
-clusters_to_mask_after_fgclean_catalog: null
-extrapolate_dim_sources: true
-freq_for_cib: null
-freq_for_radio: null
-hd_noise_sims_for_filters_dir: null
-log: null
+# example configuration file with all possible settings and their default
+# values that can be passed to the `HDFGClean` class of the `hdfgclean` module.
+
+# NOTE: we strongly recommend that you make your own copy of this file before modifying it
+
+###########################
+#  ***** REQUIRED: *****  #
+###########################
+# path to your output directory:
+output_dir:
+
+# dictionary of filenames for (apodized) maps at each frequency:
+imaps:
+# e.g.:
+#imaps:
+#  90: /path/to/90GHz_map.fits
+#  148: /path/to/148GHz_map.fits
+
+# dictionary of the Gaussian beam full-width at half-maximum (arcmin) 
+# at each frequency:
+beam_fwhms:
+# e.g.:
+#beam_fwhms:
+#  90: 0.42
+#  148: 0.25
+
+
+###########################################
+#  ** optional: ** (with default values)  #
+###########################################
+
+# apodization width (in degrees) used to apodize the maps: 
 map_apod_width: 0
+# when saving new configuration files, you may save the map geometry
+# (i.e., the `shape` and `wcs` attributes of your `pixell.enmap.ndmap`s);
+# otherwise, a map will always be loaded in when `FGClean` in initialized
+# in order to get the geometry:
 map_shape: null
 map_wcs: null
-max_ntimes_remeasure: 25
+
+
+# maximum patch size (width and height, in degrees) to use when dividing the
+# map into smaller patches:
 max_patch_size: 3
-min_num_iter_sources_per_snr: 10
-min_snr_for_spectral_index: 10
-noise_maps_for_cluster_filters: null
-noise_maps_for_source_filters: null
-noise_maps_for_source_mask_filters: null
-noise_maps_kwargs: {}
-nsigma_for_spectral_index: 2.5
+# apodization width (degrees) to use for the patches:
 patch_apod_width: 0.25
-remeasure_missubtracted_sources: true
-remeasure_snr_threshold_list:
-- 250
-- 100
-- 50
-- 25
-- 15
-- 10
-- 5
-- 4
-rms_niter: 10
-rms_nsigma: 3
-save_inv_noise_power2d: false
-smooth_p2d_npix: 3
-sources_rms_gw: 10
+
+
+# maps used to quantify the noise in the matched filter calculations:
+# the following three keyword arguments should each be a dictionary
+# of map filenames at each frequency (like the `imaps` dict)
+
+# for the point source filters, "noise" = white noise + CMB + kSZ + tSZ
+noise_maps_for_source_filters: null
+# for tSZ cluster filters, "noise" = white noise + CMB + kSZ + *residual* point sources
+# (i.e. sources remaining after iteratively removing point sources down to some SNR)
+noise_maps_for_cluster_filters: null
+# when filtering the FG cleaned maps to make masks for residual |SNR| >= 5 point soures,
+# the "noise" = white noise + CMB + kSZ + *residual* tSZ
+noise_maps_for_source_mask_filters: null
+
+# you may use the `hdsims` to generate the maps above (at the same resolution
+# as your maps); in this case, you must provide the path to the `hd_sims_dir` 
+# where the simulations are saved:
+hd_noise_sims_for_filters_dir: null
+# you must also provide a dictiobary keyword arguments (passed to 
+# `hdsims.hdsims.HDSims`) for these maps (e.g. map resolution, size, location, 
+# random seeds, etc.)
+noise_maps_kwargs: {}
+
+
+# whether to calculate the beam solid angle as a function of map
+# declination at each frequency (to account for the variation in pixel size):
+calc_beam_solid_angle_funcs: true
+# when saving new configuration files, you may save a dictionary of beam
+# solid angle functions (callable, with a single argument, declination in 
+# degrees) instead of calculating them:
+beam_solid_angle_funcs: null
+
+
+# whether to print out information about the progress of the FG cleaning, etc:
+verbose: true
+# you may use a Python `logging.Logger` instance to print out the messages;
+# by default, the `print` function is used
+log: null
+
+
+# The remaining settings may be changed, but note that only the default
+# values are guaranteed to have been thoroughly tested
+
+# CIB and radio point sources:
+subtract_sources: true
+# list of SNR thresholds used for iterative FG cleaning:
 sources_snr_threshold_list:
 - 250
 - 100
@@ -62,7 +106,86 @@ sources_snr_threshold_list:
 - 7.5
 - 5
 - 4
-sources_to_mask_before_fgclean_catalog: null
+# grid size used for RMS maps (in arcminutes)
+sources_rms_gw: 10
+# while iteratively removing sources with a given SNR threshold
+# (above the minimum), move on to the next SNR threshold after
+# fewer than  `min_num_iter_sources_per_snr` are found
+min_num_iter_sources_per_snr: 10
+# whether to extrapolate the fluxes of CIB/radio sources detected at
+# higher/lower frequencies to the other map frequencies:
+extrapolate_dim_sources: true
+# minimum SNR of detected sources to use when calculating the mean CIB or
+# radio spectral index between two frequencies:
+min_snr_for_spectral_index: 10
+# by default, we iteratively calculate a mean spectral index, removing
+# sources that differ from the average by more than 2.5 sigma:
+nsigma_for_spectral_index: 2.5
+# frequencies (GHz) used for the CIB and radio flux extrapolation;
+# by default, the highest/lowest map frequency is used for CIB/radio
+freq_for_cib: null
+freq_for_radio: null
+# whether to identify, re-measure, and re-subtract any sources that were
+# missubtracted during the iterative FG cleaning procedure:
+remeasure_missubtracted_sources: true
+# maximum number of times to do the remeasuring step:
+max_ntimes_remeasure: 25
+# list of SNR thresholds to use while remeasuring:
+remeasure_snr_threshold_list:
+- 250
+- 100
+- 50
+- 25
+- 15
+- 10
+- 5
+- 4
+
+# tSZ clusters:
 subtract_clusters: true
-subtract_sources: true
-verbose: true
+# list of SNR thresholds used for iterative FG cleaning:
+clusters_snr_threshold_list:
+- 50
+- 25
+- 15
+- 12.5
+- 10
+- 7.5
+- 5
+- 4
+# grid size used for RMS maps (in arcminutes)
+clusters_rms_gw: 40
+# you may provide a dictionary of python functions to use  as the cluster
+# profiles in the matched filters (this is easier to do within a Python
+# script, as opposed to saving the information in the configuration file);
+# see the `get_default_gauss_cluster_profiles_dict` function in the
+# `fgfilters` module for the default set of profiles used, and as an
+# example of the `cluster_profiles` dictionary format
+cluster_profiles: null
+# if using a non-default set of cluster profiles, you MUST provide a
+# simple, short description (`str`; used in file names, etc.) for the
+# profiles you're using:
+cluster_profiles_info: null
+# on each iteration of cluster subtraction, define a distance (in arcminutes)
+# from each subtracted cluster, such that no other clusters within that
+# distance will be subtracted from the map until the next iteration
+clusters_iter_match_radius: 1
+
+# general FG cleaning (used for both point sources and clusters):
+rms_niter: 10
+rms_nsigma: 3
+smooth_p2d_npix: 3
+
+# you may pass a catalog (`pandas.DataFrame` or path to a `.csv` file)
+# of known, very bright sources in your maps, which will be masked before
+# FG cleaning; must have columns `'RADeg'`, `'decDeg'` (R.A., dec. of each
+# source, in degrees) and a column for flux in mJy at each frequency (keys
+# of `imaps`) named `'fluxmJy_{round(freq)}GHz'`
+sources_to_mask_before_fgclean_catalog: null
+# you may also pass a catalog (`pandas.DataFrame` or path to a `.csv` file)
+# of any known clusters (e.g., very nearby, large, massive) that you would
+# like to include in the final mask; must have columns `'RADeg'`, `'decDeg'`
+# (R.A., dec. of each cluster) and `mask_radius` (radius of the hole in the 
+# mask, in arcmin)
+clusters_to_mask_after_fgclean_catalog: null
+

@@ -32,5 +32,7 @@ else: # run FG cleaning:
     # make sure all of the power spectra needed for the plots has been saved:
     if args.spectra:
         fgcleanlib._save_sources_spectra_for_plot()
+    # make sure the directory for plots is created:
+    fgcleanlib.plots_dir(make_dir=mpi.is_rank0)
     log.info(f"[MPI rank {mpi.rank:2d}] {utils.tmsg(time.time() - t)} to run FG cleaning.")
 

@@ -638,141 +638,263 @@ class PointSourceFilter:
 # ----- clusters -----
 
 def gauss_1d(r, sigma, amplitude=1):
+    """A 1D Gaussian profile as a function of distance from the origin,
+    with zero mean and the given standard deviation, normalized to a 
+    maximum amplitude of one.
+    
+    Parameters
+    ----------
+    r : float or array_like of float
+        Distance from the origin.
+    sigma : float
+        The standard deviation of the Gaussian.
+    amplitude : int or float, default=1
+        The maximum amplitude at the origin.
+        
+    Returns
+    -------
+    float or array_like of float
+        The Gaussian evaluated at `r`.
+    """
     rprof = amplitude * np.exp(-0.5 * (r / sigma)**2)
     return rprof
 
 
-def gauss_profile_name(sigma):
-    return f'gauss{simutils.round_str(sigma)}arcmin'
+def gauss_profile_name(sigma, nround=2, units='arcmin'):
+    """A name for a Gaussian profile with the given standard deviation.
+    
+    Typically used as a key in a dictionary.
+    
+    Parameters
+    ----------
+    sigma : float
+        The standard deviation of the Gaussian.
+        
+    Returns
+    -------
+    str
+        The name for the profile, 'gauss{sigma}{units}'
+        
+    Other parameters
+    ----------------
+    nround : int, default=2
+        The number of decimal places to round `sigma` to.
+    units : str, default='arcmin'
+        The units of `sigma`.
+    """
+    return f'gauss{simutils.round_str(sigma, n=nround)}{units}'
 
 
-def gauss_cluster_profiles_dict(sigmas, nsigma_for_rmax=5):
+def gauss_cluster_profiles_dict(sigmas, nsigma_for_rmax=5, 
+                                nround=2, units='arcmin'):
+    """Dictionary of Gaussian radial profiles to use as a set of tSZ 
+    cluster profiles.
+    
+    The `gauss_1d` function is used as the radial profile function. The 
+    returned dictionary is in a format that can be passed to, e.g., the
+    `ClusterFilters` class.
+    
+    Parameters
+    ----------
+    sigmas : array_like of float
+        The standard deviations to use for the profiles (one profile 
+        per standard deviation).
+    nsigma_for_rmax : int or float, default=5
+        The number of standard deviations to use when determining `rmax`
+        for each profile; `rmax` is the maximum angular distance from the
+        origin, beyond which the radial profile is set to zero.
+    
+    Returns
+    -------
+    profiles : dict of dict
+        A dictionary of Gaussian radial profile functions to use for the
+        cluster profiles. Each key, value pair is a name (`str`) for a 
+        given profile, and a dictionary for that profile with the 
+        following keys and values:
+        - `'radial_prof_func'` : The `fgfilters.gauss_1d` function.
+        - `'args'` : A list containing the standard deviation, `sigma`, 
+                     of the Gaussian profile.
+        - `'kwargs'` : An empty dictionary.
+        - `'rmax'` : The value of `sigma * nsigma_for_rmax` for the 
+                     profile.
+                     
+    Other parameters
+    ----------------
+    nround : int, default=2
+        The number of decimal places to round each standard deviation to
+        in the `profiles` dictionary keys.
+    units : str, default='arcmin'
+        The units of `sigma` to use in the `profiles` dictionary keys.
+    """
     profiles = {}
     for sigma in sigmas:
-        profile_name = gauss_profile_name(sigma)
-        profiles[profile_name] = {'rmax': nsigma_for_rmax * sigma, 'radial_prof_func': gauss_1d, 'args': [sigma], 'kwargs': {}}
+        rmax = nsigma_for_rmax * sigma
+        profile_name = gauss_profile_name(sigma, nround=nround, units=units)
+        profiles[profile_name] = {'rmax': rmax, 'radial_prof_func': gauss_1d, 
+                                  'args': [sigma], 'kwargs': {}}
     return profiles
 
 
 def get_default_gauss_cluster_profiles_dict():
+    """Dictionary of the default set of Gaussian radial profiles to use
+    as a set of tSZ cluster profiles.
+    
+    There are 11 profiles for standard deviations of 0.25, 0.3, 0.35, 
+    0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, and 0.75 arcminutes. The 
+    `gauss_1d` function is used as the radial profile function. The 
+    returned dictionary is in a format that can be passed to, e.g., the
+    `ClusterFilters` class.
+    
+    Returns
+    -------
+    profiles : dict of dict
+        A dictionary of Gaussian radial profile functions to use for the
+        cluster profiles. Each key, value pair is a name (`str`) for a 
+        given profile, and a dictionary for that profile with the 
+        following keys and values:
+        - `'radial_prof_func'` : The `fgfilters.gauss_1d` function.
+        - `'args'` : A list containing the standard deviation, `sigma`, 
+                     of the Gaussian profile.
+        - `'kwargs'` : An empty dictionary.
+        - `'rmax'` : The value of `5 * sigma` for the profile.
+                     
+    See Also
+    --------
+    gauss_cluster_profiles_dict
+    """
     default_cluster_profiles = gauss_cluster_profiles_dict(fgi.cluster_profile_sigmas)
     return default_cluster_profiles
 
 
-def calc_power2d_multifreq(imaps, apod_width=0, smooth_npix=0, deconvolve_pixwin=False, verbose=False, log=None):
-    """
-    `imaps` should have shape `(nfreq, Ny, Nx)`
+def calc_power2d_multifreq(imaps, apod_width=0, smooth_npix=0,
+                           deconvolve_pixwin=False,
+                           verbose=False, log=None):
+    """Calculate the 2D power spectrum of the maps for each frequency
+    pair.
+
+    Parameters
+    ----------
+    imaps : pixell.enmap.ndmap
+        The maps. `imaps` must have a `shape` of `(nfreq, Ny, Nx)`, where
+        `nfreq` is the number of map frequencies and `Ny`, `Nx` are the
+        number of pixels in each row or column, respectively, of the
+        maps; i.e., `maps[0]`, `maps[1]`, etc. is the map at the first,
+        second, etc. frequency, each with a `shape` of `(Ny, Nx)`.
+    apod_width : int or float, default=0
+        The apodization width (in degrees) used to apodize the maps. By
+        default, if `apod_width=0`, the maps will not be apodized.
+    smooth_npix : int, default=0
+        The number of pixels used to smooth each 2D power spectrum.
+    deconvolve_pixwin : bool, default=False
+        Whether to deconvolve the pixel window function from each map
+        before calculating the power.
+
+    Returns
+    -------
+    p2d : pixell.enmap.ndmap
+        A map with shape `(nfreq, nfreq, Ny, Nx)`, such that `p2d[i,j]`
+        is the power spectrum between the maps at the `i`th and `j`th
+        frequencies.
+
+    Other Parameters
+    ----------------
+    verbose : bool, default=False
+        Whether to print out how long the calculation takes.
+    log : logging.Logger or None, optional
+        A `logging.Logger` instance to use when `verbose=True`. If `log`
+        is passed, any messages will be passed to `log.info`.
+        Otherwise, messages will be passed to the `print` function.
+
+    See Also
+    --------
+    calc_power2d : 2D power spectrum of (a) map(s), for a single
+                   frequency or frequency pair.
     """
     t0 = time.time()
     fgutils.print_msg('calculating multi-frequency 2d power', verbose=verbose, log=log)
-
     maps = imaps.copy()
     nfreq = maps.shape[0]
     map_shape = maps.shape[-2:]
     if deconvolve_pixwin:
-        apod_npix = fgmaps.dist2npix(apod_width, map_shape, imaps.wcs, units='degrees')
+        apod_npix = fgmaps.dist2npix(apod_width, map_shape, maps.wcs, units='degrees')
         apod_window = enmap.apod(enmap.ones(map_shape, maps.wcs), apod_npix)
         for i in range(nfreq):
             maps[i] = enmap.unapply_window(maps[i] * apod_window)
         apod_width = 0 # don't apodize again
-
+    # calculate power for each pair of frequencies:
     p2d = enmap.ones((nfreq, nfreq, *map_shape), maps.wcs)
     for i in range(nfreq):
         for j in range(nfreq):
-            p2d[i, j, :, :] = calc_power2d(maps[i], imap2=maps[j], apod_width=apod_width, smooth_npix=smooth_npix)
-    fgutils.print_msg(f'{utils.tmsg(time.time() - t0)} to calculate 2d power', verbose=verbose, log=log)
-
+            p2d[i, j, :, :] = calc_power2d(maps[i], imap2=maps[j],
+                                           apod_width=apod_width,
+                                           smooth_npix=smooth_npix)
+    fgutils.print_msg(f'{utils.tmsg(time.time() - t0)} to calculate 2d power',
+                      verbose=verbose, log=log)
     return p2d
 
 
-def calc_inv_power2d_multifreq(p2d, verbose=False, log=None):
+def _calc_inv_power2d_multifreq(p2d, verbose=False, log=None):
+    """Calculate the inverse of the multi-frequency 2D power at each
+    pixel in the Fourier-space maps.
+
+    This is used in the multi-frequency matched filter calculations;
+    see MacInnis et. al. (2026) for details.
+    """
     t0 = time.time()
-    fgutils.print_msg('calculating inverse of multi-frequency 2d power', verbose=verbose, log=log)
+    fgutils.print_msg('calculating inverse of multi-frequency 2d power',
+                      verbose=verbose, log=log)
     # re-arrange shape from (nfreq, nfreq, Ny, Nx) to (Ny, Nx, nfreq, nfreq)
     tmp_p2d = np.moveaxis(p2d.copy(), [0, 1, 2, 3], [2, 3, 0, 1])
     # take inverse, then put back into correct shape
     inv_p2d = np.moveaxis(np.linalg.inv(tmp_p2d), [0, 1, 2, 3], [2, 3, 0, 1])
-    fgutils.print_msg(f'{utils.tmsg(time.time() - t0)} to calculate inverse', verbose=verbose, log=log)
+    fgutils.print_msg(f'{utils.tmsg(time.time() - t0)} to calculate inverse',
+                      verbose=verbose, log=log)
     return inv_p2d
 
 
-def get_inv_power2d_multifreq(imaps, apod_width=0, smooth_npix=0, deconvolve_pixwin=False, verbose=False, log=None):
-    p2d = calc_power2d_multifreq(imaps, apod_width=apod_width, smooth_npix=smooth_npix,
-                                 deconvolve_pixwin=deconvolve_pixwin, verbose=verbose, log=log)
-    inv_p2d = calc_inv_power2d_multifreq(p2d, verbose=verbose, log=log)
-    return inv_p2d
+def _get_inv_power2d_multifreq(imaps, apod_width=0, smooth_npix=0,
+                               deconvolve_pixwin=False,
+                               verbose=False, log=None):
+    """Calculate the inverse of the multi-frequency 2D power at each
+    pixel in the Fourier-space maps. Parameters are passed to
+    `calc_power2d_multifreq`.
 
-
-def inv_noise_power2d_multifreq_block_fname(freq1, freq2, deconvolve_pixwin=False, output_dir=None):
-    ''' NOTE : always returns the same filename for same freq pair (freq1 x freq2 same as freq2 x freq1) '''
-    nu1 = min([freq1, freq2])
-    nu2 = max([freq1, freq2])
-    fname_root = f'inv_noise_power2d_multifreq_block_{round(nu1):03d}x{round(nu2):03d}'
-    if deconvolve_pixwin:
-        fname_root = f'{fname_root}_pixwin_deconvolved'
-    fname = f'{fname_root}.fits'
-    if output_dir is not None:
-        fname = os.path.join(output_dir, fname)
-    return fname
-
-
-def save_inv_noise_power2d_multifreq(inv_noise_power2d, freqs, deconvolve_pixwin=False, output_dir=None, 
-                                     overwrite=False, verbose=False, log=None):
-    '''save blocks of the (symmetric) inv noise 2d power
-    
-    freqs should be in correct order (same as order in `inv_noise_power2d`)
-    '''
-    for i, freq1 in enumerate(freqs):
-        for j, freq2 in enumerate(freqs):
-            if j >= i:
-                fname = inv_noise_power2d_multifreq_block_fname(freq1, freq2, deconvolve_pixwin=deconvolve_pixwin, output_dir=output_dir)
-                if overwrite or (not os.path.exists(fname)):
-                    enmap.write_map(fname, inv_noise_power2d[i, j])
-                    fgutils.print_msg(f"saved {fname}", verbose=verbose, log=log)
-
-
-def inv_noise_power2d_multifreq_is_saved(freqs, deconvolve_pixwin=False, output_dir=None):
-    files_saved = []
-    for i, freq1 in enumerate(freqs):
-        for j, freq2 in enumerate(freqs):
-            if j >= i:
-                fname = inv_noise_power2d_multifreq_block_fname(freq1, freq2, deconvolve_pixwin=deconvolve_pixwin, output_dir=output_dir)
-                files_saved.append(os.path.exists(fname))
-    return all(files_saved)
-
-
-def load_inv_noise_power2d_multifreq(shape, wcs, freqs, deconvolve_pixwin=False, output_dir=None):
-    nfreq = len(freqs)
-    inv_noise_power2d_shape = (nfreq, nfreq, *shape[-2:])
-    inv_noise_power2d = enmap.zeros(inv_noise_power2d_shape, wcs)
-    for i, freq1 in enumerate(freqs):
-        for j, freq2 in enumerate(freqs):
-            if j >= i:
-                fname = inv_noise_power2d_multifreq_block_fname(freq1, freq2, deconvolve_pixwin=deconvolve_pixwin, output_dir=output_dir)
-                inv_noise_power2d[i, j] = enmap.read_map(fname)
-                if j != i:
-                    inv_noise_power2d[j, i] = inv_noise_power2d[i, j].copy()
-    return inv_noise_power2d
-
-
-def get_inv_noise_power2d_multifreq(noise_maps, freqs, apod_width=0, smooth_npix=0, deconvolve_pixwin=False,
-                                    output_dir=None, save=False, verbose=False, log=None):
-    if inv_noise_power2d_multifreq_is_saved(freqs, deconvolve_pixwin=deconvolve_pixwin, output_dir=output_dir):
-        inv_p2d = load_inv_noise_power2d_multifreq(noise_maps.shape[-2:], noise_maps.wcs, freqs,
-                                                   deconvolve_pixwin=deconvolve_pixwin, output_dir=output_dir)
-    else:
-        inv_p2d = get_inv_power2d_multifreq(noise_maps, apod_width=apod_width, smooth_npix=smooth_npix,
-                                            deconvolve_pixwin=deconvolve_pixwin, verbose=verbose, log=log)
-        if save:
-            save_inv_noise_power2d_multifreq(inv_p2d, freqs, deconvolve_pixwin=deconvolve_pixwin,
-                                             output_dir=output_dir, verbose=verbose, log=log)
+    This is used in the multi-frequency matched filter calculations;
+    see MacInnis et. al. (2026) for details.
+    """
+    p2d = calc_power2d_multifreq(imaps, apod_width=apod_width,
+                                 smooth_npix=smooth_npix,
+                                 deconvolve_pixwin=deconvolve_pixwin,
+                                 verbose=verbose, log=log)
+    inv_p2d = _calc_inv_power2d_multifreq(p2d, verbose=verbose, log=log)
     return inv_p2d
 
 
 def apply_filters_multifreq(imaps, filters, apod_width=0):
-    '''
-    filters should be a dict of filters
-    '''
+    """Apply a set of multi-frequency matched filters to the maps.
+
+    Parameters
+    ----------
+    imaps : pixell.enmap.ndmap
+        The maps. `imaps` must have a `shape` of `(nfreq, Ny, Nx)`, where
+        `nfreq` is the number of map frequencies and `Ny`, `Nx` are the
+        number of pixels in each row or column, respectively, of the
+        maps; i.e., `maps[0]`, `maps[1]`, etc. is the map at the first,
+        second, etc. frequency, each with a `shape` of `(Ny, Nx)`.
+    filters : dict of pixell.enmap.ndmap
+        A dictionary of matched filters; each filter must have a `shape`
+        of `(nfreq, Ny, Nx)`.
+    apod_width : int or float, default=0
+        The apodization width (in degrees) used to apodize the maps. By
+        default, if `apod_width=0`, the maps will not be apodized.
+
+    Returns
+    -------
+    filtered_maps : dict of pixell.enmap.ndmap
+        A dictionary with the same keys as `filters`, with the
+        (real-space) filtered map corresponding to each filter. Each
+        filtered map has a `shape` of `(Ny, Nx)`.
+    """
     fmaps = get_ft(imaps, apod_width=apod_width)
     filtered_maps = {}
     for key, filt in filters.items():
@@ -781,63 +903,160 @@ def apply_filters_multifreq(imaps, filters, apod_width=0):
 
 
 def apply_filter_multifreq(imaps, filters, apod_width=0):
+    """Apply a multi-frequency matched filter to the maps.
+
+    Parameters
+    ----------
+    imaps : pixell.enmap.ndmap
+        The maps. `imaps` must have a `shape` of `(nfreq, Ny, Nx)`, where
+        `nfreq` is the number of map frequencies and `Ny`, `Nx` are the
+        number of pixels in each row or column, respectively, of the
+        maps; i.e., `maps[0]`, `maps[1]`, etc. is the map at the first,
+        second, etc. frequency, each with a `shape` of `(Ny, Nx)`.
+    filters : dict of pixell.enmap.ndmap
+        The matched filter; must have a `shape` of `(nfreq, Ny, Nx)`.
+    apod_width : int or float, default=0
+        The apodization width (in degrees) used to apodize the maps. By
+        default, if `apod_width=0`, the maps will not be apodized.
+
+    Returns
+    -------
+    filtered_map : pixell.enmap.ndmap
+        The filtered map, which has a `shape` of `(Ny, Nx)`.
+    """
     fmaps = get_ft(imaps, apod_width=apod_width)
     filtered_map = get_inv_ft(fmaps * filters, normalize=False).sum(axis=0)
     return filtered_map
 
 
-def calc_multifreq_filter_norm(freqs, unnormalized_filt, template_maps,
-                               convolve_pixwin=False, convolve_beam=False, beam_fwhms=None,
-                               deconvolve_pixwin=False, # whether we will deconvolve pixwin from filtered maps
-                               verbose=False, log=None):
-    '''
-    deconvolve_pixwin (bool) : whether pixel window will be deconvolved from filtered maps
-    '''
+def _calc_multifreq_filter_norm(freqs, unnormalized_filt, template_maps,
+                                convolve_pixwin=False,
+                                convolve_beam=False, beam_fwhms=None,
+                                deconvolve_pixwin=False,
+                                verbose=False, log=None):
+    """Calculate the normalization for a multi-frequency matched filter.
+
+    See Also
+    --------
+    calc_multifreq_filter
+    """
     maps_to_filter = template_maps.copy()
-    y0 = 2e-4 
+    y0 = 2e-4
     for i, freq in enumerate(freqs):
         maps_to_filter[i] *= fgutils.y_to_uK(y0, freq)
         if convolve_pixwin:
             maps_to_filter[i] = enmap.apply_window(maps_to_filter[i])
         if convolve_beam:
-            maps_to_filter[i] = maps.convolve_sim_with_beam(maps_to_filter[i], beam_fwhms[freq])
+            maps_to_filter[i] = maps.convolve_sim_with_beam(maps_to_filter[i],
+                                                            beam_fwhms[freq])
     filtered_map = apply_filter_multifreq(maps_to_filter, unnormalized_filt)
     if deconvolve_pixwin:
         filtered_map = enmap.unapply_window(filtered_map)
-    filt_norm = y0 / np.max(filtered_map) 
+    filt_norm = y0 / np.max(filtered_map)
     return filt_norm
 
 
-def calc_multifreq_filter(freqs, shape, wcs, radial_prof_func, rmax, inv_noise_power2d,
-                          convolve_pixwin=False, convolve_beam=False, beam_fwhms=None,
-                          deconvolve_pixwin=False, verbose=False, log=None):
-    """
-    deconvolve_pixwin (bool) : whether pixel window will be deconvolved from filtered map
+def calc_multifreq_filter(freqs, shape, wcs,
+                          radial_prof_func, rmax,
+                          inv_noise_power2d,
+                          convolve_beam=False, beam_fwhms=None,
+                          convolve_pixwin=False,
+                          deconvolve_pixwin=False,
+                          verbose=False, log=None):
+    """Calculate a normalized multi-frequency matched filter.
 
-    note : we ask for `inv_noise_power2d` instead of the noise maps themselves, since `inv_noise_power2d` only needs to be calculated once & used for different filter
+    Parameters
+    ----------
+    freqs : array_like of int or array_like of float
+        The frequencies (in GHz).
+    shape : tuple of int
+        The shape `(Ny, Nx)` of each map, where `Ny` and `Nx` are the
+        number of pixels along the dec. and R.A. directions,
+        respectively.
+    wcs : astropy.wcs.wcs.WCS
+        An astropy World Coordinate System instance for the
+        pixelization of the map.
+    radial_prof_func : function
+        A callable function for the radial profile to match to; the
+        function must accept a single argument, the radial distance (in
+        arcminutes) from the origin.
+    rmax : float
+        A maximum angular distance (in arcminutes) from the origin,
+        beyond which the radial profile is set to zero.
+    inv_noise_power2d : pixell.enmap.ndmap
+        The inverse of the `nfreq` x `nfreq` (where `nfreq` is the number
+        of map frequencies) matrix `P` defined at each Fourier-space
+        pixel the maps, such that `P[i,j]` is the 2D cross-power spectrum
+        of the maps at `freqs[i]` and `freqs[j]`.
+    convolve_beam : bool, default=False
+        Whether the maps being filtered have been convolved with a beam.
+    beam_fwhms : dict of float or None, optional
+        A dictionary with a key for each frequency and the beam
+        full-width at half-maximum (in arcminutes) of the Gaussian beam
+        profile at that frequency. Only used if `convolve_beam=True`.
+    convolve_pixwin : bool, default=False
+        Whether the maps being filtered have been convolved with the
+        pixel window function.
+    deconvolve_pixwin : bool, default=False
+        Whether the pixel window function. will be deconvolved from the
+        filtered map.
+
+    Returns
+    -------
+    filt : pixell.enmap.ndmap
+        The normalized, multi-frequency matched filter. The filter has a
+        `shape` of `(nfreq, Ny, Nx)`; `filt[i]` is the filter with shape
+        `(Ny, Nx)` for the map at frequency `freqs[i]`.
+    filt_norm : float
+        The filter normalization.
+
+    Other Parameters
+    ----------------
+    verbose : bool, default=False
+        Whether to print out how long the calculation takes.
+    log : logging.Logger or None, optional
+        A `logging.Logger` instance to use when `verbose=True`. If `log`
+        is passed, any messages will be passed to `log.info`.
+        Otherwise, messages will be passed to the `print` function.
+
+
+    See Also
+    --------
+    _get_inv_power2d_multifreq : Returns `inv_noise_power2d`
+
+
+    Notes
+    -----
+    See MacInnis et. al. (2026) for the details of the matched filter
+    calculation.
     """
     t0 = time.time()
-    template_maps = fgmaps.get_profile_template_maps(freqs, shape, wcs, radial_prof_func, rmax,
-                                              convolve_pixwin=convolve_pixwin,
-                                              convolve_beam=convolve_beam, beam_fwhms=beam_fwhms)
+    template_maps = fgmaps.get_profile_template_maps(freqs, shape, wcs,
+                                                     radial_prof_func, rmax,
+                                                     convolve_pixwin=convolve_pixwin,
+                                                     convolve_beam=convolve_beam,
+                                                     beam_fwhms=beam_fwhms)
     ftmaps = get_ft(template_maps)
     filt = enmap.zeros(template_maps.shape, template_maps.wcs)
     nfreq = len(freqs)
     for i in range(nfreq):
         for j, freq in enumerate(freqs):
-            filt[i] += inv_noise_power2d[i,j] * fgutils.f_tSZ(freq) * abs(ftmaps[j]) 
-    filt_norm = calc_multifreq_filter_norm(freqs, filt, template_maps, convolve_pixwin=(not convolve_pixwin),
-                                           convolve_beam=(not convolve_beam), beam_fwhms=beam_fwhms,
-                                           deconvolve_pixwin=deconvolve_pixwin, verbose=verbose, log=log)
+            filt[i] += inv_noise_power2d[i,j] * fgutils.f_tSZ(freq) * abs(ftmaps[j])
+    filt_norm = _calc_multifreq_filter_norm(freqs, filt, template_maps,
+                                            convolve_beam=(not convolve_beam),
+                                            beam_fwhms=beam_fwhms,
+                                            convolve_pixwin=(not convolve_pixwin),
+                                            deconvolve_pixwin=deconvolve_pixwin,
+                                            verbose=verbose, log=log)
     filt *= filt_norm
-    fgutils.print_msg(f'{utils.tmsg(time.time() - t0)} to calculate filter for {freqs = }', verbose=verbose, log=log)
+    fgutils.print_msg(f'{utils.tmsg(time.time() - t0)} to calculate filter for {freqs = }',
+                      verbose=verbose, log=log)
     return filt, filt_norm
-
 
 
 class ClusterFilter:
     def __init__(self, freqs, beam_fwhms, noise_maps, radial_prof_func, rmax,
-                 inv_noise_power2d=None, save_inv_noise_power2d=False, save_dir=None,
+                 inv_noise_power2d=None, 
                  apod_width=0, apply_apod=False, deconvolve_pixwin=True, 
                  smooth_p2d_npix=fgi.p2d_smooth_npix,
                  rms_gw=fgi.rms_gw_clusters, use_fixed_rms_gw=fgi.rms_fixed_gw, 
@@ -872,8 +1091,6 @@ class ClusterFilter:
 
         self.inv_noise_power2d = inv_noise_power2d
         self.smooth_p2d_npix = smooth_p2d_npix
-        self.save_inv_noise_power2d = save_inv_noise_power2d
-        self.save_dir = save_dir
 
         self.filt = None
         self.filt_norm = None
@@ -885,12 +1102,10 @@ class ClusterFilter:
         if self.filt is None:
             if self.inv_noise_power2d is None:
                 apod_width = self.apod_width if self.apodize else 0
-                self.inv_noise_power2d = get_inv_noise_power2d_multifreq(self.noise_maps, self.freqs,
+                self.inv_noise_power2d = _get_inv_power2d_multifreq(self.noise_maps, 
                                                                          apod_width=apod_width, 
                                                                          smooth_npix=self.smooth_p2d_npix,
                                                                          deconvolve_pixwin=self.deconvolve_pixwin,
-                                                                         output_dir=self.save_dir, 
-                                                                         save=self.save_inv_noise_power2d,
                                                                          verbose=self.verbose, log=self.log)
             self.filt, self.filt_norm = calc_multifreq_filter(self.freqs, self.shape, self.wcs,
                                                               self.radial_prof_func, self.rmax, self.inv_noise_power2d,
@@ -942,7 +1157,7 @@ class ClusterFilter:
 
 class ClusterFilters:
     def __init__(self, freqs, beam_fwhms, noise_maps, profiles,
-                 inv_noise_power2d=None, save_inv_noise_power2d=False, save_dir=None,
+                 inv_noise_power2d=None, 
                  apod_width=0, apply_apod=False,
                  deconvolve_pixwin=True,
                  smooth_p2d_npix=fgi.p2d_smooth_npix,
@@ -983,8 +1198,6 @@ class ClusterFilters:
 
         self.inv_noise_power2d = inv_noise_power2d
         self.smooth_p2d_npix = smooth_p2d_npix
-        self.save_inv_noise_power2d = save_inv_noise_power2d
-        self.save_dir = save_dir
 
         self.verbose = verbose
         self.log = log
@@ -1035,10 +1248,9 @@ class ClusterFilters:
     def get_inv_noise_power2d(self):
         if self.inv_noise_power2d is None:
             apod_width = self.apod_width if self.apodize else 0
-            self.inv_noise_power2d = get_inv_noise_power2d_multifreq(self.noise_maps, self.freqs,
+            self.inv_noise_power2d = _get_inv_power2d_multifreq(self.noise_maps, 
                                                                      apod_width=apod_width, smooth_npix=self.smooth_p2d_npix,
                                                                      deconvolve_pixwin=self.deconvolve_pixwin,
-                                                                     output_dir=self.save_dir, save=self.save_inv_noise_power2d,
                                                                      verbose=self.verbose, log=self.log)
         return self.inv_noise_power2d
 

@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from hd_mock_data import hd_data
-from hdsims import hdsims, siminfo as si, utils, simutils, hdsimsutils, maps
+from hdsims import hdsims, siminfo as si, utils, simutils, hdsimsutils, maps, fgcatalogs
 from . import fgclean_info as fgi, fgutils, fgmaps
 
 
@@ -623,7 +623,8 @@ def _save_commands_to_download_2x2hdsims(hd_sims_dir):
 def hdsims_for_example_are_saved(hd_sims_dir, verbose=True):
     if verbose:
         print("Looking for the simulation files...")
-    sims_to_fgclean_kwargs = {'width': 2, 'height': 2, 'apod_width': 0.2}
+    sims_to_fgclean_kwargs = {'width': 2, 'height': 2, 'apod_width': 0.2,
+                              'pol': False, 'freqs': fgi.freqs}
     sims_to_fgclean_saved = hdsims_files_are_saved(hd_sims_dir, verbose=verbose,
                                                    **sims_to_fgclean_kwargs)
     if verbose:
@@ -662,7 +663,20 @@ def print_hdfgclean_example_instructions(config_file, hdfgclean_repo_dir=None):
           "the following command (outside of the notebook):\n")
     print(f"    python {py_file} {config_file} --test")
     print("\nThen, to run all FG cleaning steps, run the following command:\n")
-    print(f"    python {py_file} {config_file} --match --spectra --plots")
+    print(f"    python {py_file} {config_file} --savemaps --match --spectra --plots")
+    print("\nAfter the command above has completed successfully,"
+          " you may proceed to the following notebook cells.")
+
+
+def print_fgclean_example_instructions(config_file, hdfgclean_repo_dir=None):
+    if hdfgclean_repo_dir is None:
+        hdfgclean_repo_dir = _get_default_hdfgclean_repo_dir()
+    py_file = os.path.join(hdfgclean_repo_dir, 'run_fgclean.py')
+    print("First, test initializing `FGClean` by running "
+          "the following command (outside of the notebook):\n")
+    print(f"    python {py_file} {config_file} --test")
+    print("\nThen, to run the FG cleaning, run the following command:\n")
+    print(f"    python {py_file} {config_file} --savemaps")
     print("\nAfter the command above has completed successfully,"
           " you may proceed to the following notebook cells.")
 
@@ -685,6 +699,18 @@ def all_2x2fgclean_files_are_saved(fgcleanlib, config_file, hdfgclean_repo_dir=N
         print("To run the FG cleaning, follow these instructions:\n")
         print_hdfgclean_example_instructions(config_file, hdfgclean_repo_dir=hdfgclean_repo_dir)
     return all_files_saved
+
+
+
+def detected_fg_catalogs_for_2x2filter():
+    w = 2 # width of maps
+    source_catalog_fnames = fgi.noise_map_source_catalog_files[w]
+    source_catalogs = {}
+    for freq, fname in source_catalog_fnames.items():
+        source_catalogs[freq] = fgcatalogs.load_catalog(fname)
+    cluster_catalog_fname = fgi.noise_map_cluster_catalog_files[w]
+    cluster_catalog = fgcatalogs.load_catalog(cluster_catalog_fname)
+    return source_catalogs, cluster_catalog
 
 
 

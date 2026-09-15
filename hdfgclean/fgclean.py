@@ -126,7 +126,6 @@ class FGClean:
                  clusters_iter_match_radius=fgi.clusters_iter_match_radius, # for matching clusters measured on same iter w/ different profiles/filters
                  cluster_profiles=None, # if None, use default set of gaussians
                  cluster_profiles_info=None,
-                 save_inv_noise_power2d=False,
 
                  sources_to_mask_before_fgclean_catalog=None,
                  clusters_to_mask_after_fgclean_catalog=None,
@@ -308,7 +307,7 @@ class FGClean:
                                'verbose': self.verbose, 'log': self.log}
         self.clusters_kwargs = {'iter_match_radius': clusters_iter_match_radius, 'smooth_p2d_npix': smooth_p2d_npix,
                                 'rms_gw': clusters_rms_gw, 'rms_niter': rms_niter, 'rms_nsigma': rms_nsigma,
-                                'save_inv_noise_power2d': save_inv_noise_power2d, 'verbose': self.verbose, 'log': self.log}
+                                'verbose': self.verbose, 'log': self.log}
 
         # set defaults for mask
         self.default_mask_kwargs = {'mask_sources': True, 'mask_clusters': True, 'mask_apod_width': fgi.mask_apod_width,
@@ -849,12 +848,12 @@ class FGClean:
         for freq in freqs:
             noise_map = noise_maps_for_filters[freq].copy()
             # get map of correct shape
-            if not maps.map_shape_is_equal(noise_map.shape, patch_shape):
+            if not maps.map_shape_is_equal(noise_map.shape, shape):
                 res = maps.get_map_resolution(noise_map.shape, noise_map.wcs)
                 ra_ctr, dec_ctr, _, _ = maps.get_map_ctr_extent(noise_map.shape, noise_map.wcs)
                 width, height = self.patches.get_patch_dimensions(patch_num=patch_num, padded=True)
                 _, noise_map_wcs = maps.get_shape_wcs(res, ra_ctr, dec_ctr, width, height=height)
-                noise_map = enmap.project(noise_map, patch_shape, noise_map_wcs)
+                noise_map = enmap.project(noise_map, shape, noise_map_wcs)
             noise_maps[freq] = noise_map[:] * patch_window.copy()
         return noise_maps
 

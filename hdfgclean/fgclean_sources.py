@@ -7,7 +7,8 @@ from . import fgclean_info as fgi, fgutils, fgfilters, iterfgclean
 
 
 class FGCleanSourcesFiles:
-    def __init__(self, output_dir, freq, extrapolate_dim_sources=True, make_output_dirs=False, verbose=True, log=None):
+    def __init__(self, output_dir, freq, extrapolate_dim_sources=True, 
+                 make_output_dirs=False, verbose=True, log=None):
         self.freq = freq
         self.extrap = extrapolate_dim_sources
         self.verbose = verbose
@@ -37,7 +38,8 @@ class FGCleanSourcesFiles:
     
     
     def iter_catalog_fname(self, iter_num, snr_threshold, extrap=False):
-        return iterfgclean.iter_sources_catalog_fname(iter_num, snr_threshold, iter_catalog_dir=self.iter_catalog_dir, extrap=extrap)
+        return iterfgclean.iter_sources_catalog_fname(iter_num, snr_threshold, extrap=extrap, 
+                                                      iter_catalog_dir=self.iter_catalog_dir)
     
     
     def measured_positions_catalog_dir(self):
@@ -48,12 +50,15 @@ class FGCleanSourcesFiles:
     
     
     def measured_positions_catalog_fname(self):
-        return os.path.join(self.measured_positions_catalog_dir(), 'sources_measured_at_other_freqs.csv')
+        fname = os.path.join(self.measured_positions_catalog_dir(), 
+                             'sources_measured_at_other_freqs.csv')
+        return fname
     
     
     def catalog_idxs_to_exclude_fname(self):
-        return os.path.join(self.measured_positions_catalog_dir(), 'source_idxs_missubtracted_at_other_freqs.txt')
-    
+        fname = os.path.join(self.measured_positions_catalog_dir(), 
+                             'source_idxs_missubtracted_at_other_freqs.txt')
+        return fname
     
     
     # --- initial step of iteratively finding bright sources above some SNR threshold: ---
@@ -66,20 +71,28 @@ class FGCleanSourcesFiles:
     
     
     def measured_bright_srcs_catalog_fname(self):
-        """catalog of all sources subtracted after finding/measuring bright sources above SNR"""
-        return os.path.join(self.measured_bright_srcs_dir(), 'subtracted_sources.csv')
+        """catalog of all sources subtracted after finding/measuring 
+        bright sources above SNR
+        """
+        fname = os.path.join(self.measured_bright_srcs_dir(), 
+                             'subtracted_sources.csv')
+        return fname
     
     
     def measured_bright_srcs_map_fname(self):
-        """map of all sources subtracted after finding/measuring bright sources above SNR
+        """map of all sources subtracted after finding/measuring bright
+        sources above SNR 
         (units of uK; no beam or pixwin convolved)
         """
-        return os.path.join(self.measured_bright_srcs_dir(), 'subtracted_sources.fits')
+        fname = os.path.join(self.measured_bright_srcs_dir(), 
+                             'subtracted_sources.fits')
+        return fname
     
     
     def load_measured_bright_srcs_catalog(self):
-        self.infomsg(f"loading {self.measured_bright_srcs_catalog_fname()}")
-        catalog = fgcatalogs.load_catalog(self.measured_bright_srcs_catalog_fname())
+        fname = self.measured_bright_srcs_catalog_fname()
+        self.infomsg(f"loading {fname}")
+        catalog = fgcatalogs.load_catalog(fname)
         return catalog
     
     
@@ -100,20 +113,28 @@ class FGCleanSourcesFiles:
     
     
     def measured_and_extrap_srcs_catalog_fname(self):
-        """catalog of all sources subtracted after finding/measuring bright sources above SNR & extrapolating dimmer sources"""
-        return os.path.join(self.extrapolated_dim_srcs_dir(), 'subtracted_sources.csv')
+        """catalog of all sources subtracted after finding/measuring 
+        bright sources above SNR & extrapolating dimmer sources
+        """
+        fname = os.path.join(self.extrapolated_dim_srcs_dir(), 
+                             'subtracted_sources.csv')
+        return fname
     
     
     def measured_and_extrap_srcs_map_fname(self):
-        """map of all sources subtracted after finding/measuring bright sources above SNR  & extrapolating dimmer sources
+        """map of all sources subtracted after finding/measuring bright
+        sources above SNR  & extrapolating dimmer sources
         (units of uK; no beam or pixwin convolved)
         """
-        return os.path.join(self.extrapolated_dim_srcs_dir(), 'subtracted_sources.fits')
+        fname = os.path.join(self.extrapolated_dim_srcs_dir(), 
+                             'subtracted_sources.fits')
+        return fname
     
     
     def load_measured_and_extrap_srcs_catalog(self):
-        self.infomsg(f"loading {self.measured_and_extrap_srcs_catalog_fname()}")
-        catalog = fgcatalogs.load_catalog(self.measured_and_extrap_srcs_catalog_fname())
+        fname = self.measured_and_extrap_srcs_catalog_fname()
+        self.infomsg(f"loading {fname}")
+        catalog = fgcatalogs.load_catalog(fname)
         return catalog
     
     
@@ -135,20 +156,23 @@ class FGCleanSourcesFiles:
     
     
     def load_spectral_index_catalog(self, extrap_freq, component=None):
-        '''just writing this so we don't have to init. the whole src sub class to get catalog if it's already been saved'''
-        return fgcatalogs.load_catalog(self.spectral_index_catalog_fname(extrap_freq, component=component))
+        fname = self.spectral_index_catalog_fname(extrap_freq, component=component)
+        return fgcatalogs.load_catalog(fname)
     
     
     def spectral_index_fname(self, component):
         """`component` is 'cib' or 'radio'"""
         if component.lower() not in ['cib', 'radio']:
-            raise ValueError(f"`{component = }`. The `component` name must be either `'cib'` or `'radio'`.")
-        fname = os.path.join(self.extrapolated_dim_srcs_dir(), f'{component}_spectral_index.txt')
+            raise ValueError(f"`{component = }`. The `component` name"
+                             " must be either `'cib'` or `'radio'`.")
+        fname = os.path.join(self.extrapolated_dim_srcs_dir(), 
+                             f'{component}_spectral_index.txt')
         return fname
         
         
     def load_spectral_index(self, component):
-        index_mean, index_std_dev = np.loadtxt(self.spectral_index_fname(component), unpack=True)
+        fname = self.spectral_index_fname(component)
+        index_mean, index_std_dev = np.loadtxt(fname, unpack=True)
         return index_mean, index_std_dev
     
     
@@ -156,25 +180,31 @@ class FGCleanSourcesFiles:
     
     def remeasured_srcs_dir(self):
         step_num = 3 if self.extrap else 2
-        odir = os.path.join(self.output_dir, f'step{step_num}_remeasure_missubtracted_sources')
+        dir_name = f'step{step_num}_remeasure_missubtracted_sources'
+        odir = os.path.join(self.output_dir, dir_name)
         if self.make_output_dirs:
             utils.mkdir(odir)
         return odir
     
     
     def missubtracted_sources_catalog_fname(self):
-        return os.path.join(self.remeasured_srcs_dir(), 'missubtracted_sources.csv')
+        fname = os.path.join(self.remeasured_srcs_dir(), 'missubtracted_sources.csv')
+        return fname
     
     
     def load_missubtracted_sources_catalog(self):
-        self.infomsg(f"loading {self.missubtracted_sources_catalog_fname()}")
-        catalog = fgcatalogs.load_catalog(self.missubtracted_sources_catalog_fname())
+        fname = self.missubtracted_sources_catalog_fname()
+        self.infomsg(f"loading {fname}")
+        catalog = fgcatalogs.load_catalog(fname)
         return catalog
     
     
     def remeasured_srcs_catalog_fname(self):
-        """catalog of all sources subtracted after re-measuring missubtracted sources"""
-        return os.path.join(self.remeasured_srcs_dir(), 'subtracted_sources.csv')
+        """catalog of all sources subtracted after re-measuring 
+        missubtracted sources
+        """
+        fname = os.path.join(self.remeasured_srcs_dir(), 'subtracted_sources.csv')
+        return fname
     
     
     def remeasured_srcs_map_fname(self):
@@ -201,56 +231,62 @@ class FGCleanSourcesFiles:
     
     def catalog_of_subtracted_sources_fname(self):
         """final catalog of all subtracted sources"""
-        return os.path.join(self.output_dir, 'subtracted_sources.csv')
+        fname = os.path.join(self.output_dir, 'subtracted_sources.csv')
+        return fname
     
     
     def map_of_subtracted_sources_fname(self):
         """final map of all subtracted sources (no beam or pixwin)"""
-        return os.path.join(self.output_dir, 'subtracted_sources.fits')
+        fname = os.path.join(self.output_dir, 'subtracted_sources.fits')
+        return fname
     
     
     def source_subtracted_sim_fname(self):
         """final source-subtracted sim"""
-        return os.path.join(self.output_dir, 'sim_after_source_subtraction.fits')
+        fname = os.path.join(self.output_dir, 'sim_after_source_subtraction.fits')
+        return fname
     
     
     def load_catalog_of_subtracted_sources(self):
-        self.infomsg(f"loading {self.catalog_of_subtracted_sources_fname()}")
-        return fgcatalogs.load_catalog(self.catalog_of_subtracted_sources_fname())
+        fname = self.catalog_of_subtracted_sources_fname()
+        self.infomsg(f"loading {fname}")
+        return fgcatalogs.load_catalog(fname)
     
     
     def load_map_of_subtracted_sources(self):
-        """NOTE: maps include apod. region, and are NOT convolved w/ pixwin or beam"""
-        self.infomsg(f"loading {self.map_of_subtracted_sources_fname()}")
-        subtracted_srcs_map = enmap.read_map(self.map_of_subtracted_sources_fname())
+        """NOTE: maps are NOT convolved w/ pixwin or beam"""
+        fname = self.map_of_subtracted_sources_fname()
+        self.infomsg(f"loading {fname}")
+        subtracted_srcs_map = enmap.read_map(fname)
         return subtracted_srcs_map
     
     
     def load_source_subtracted_sim(self):
-        if os.path.exists(self.source_subtracted_sim_fname()):
-            self.infomsg(f"loading {self.source_subtracted_sim_fname()}")
-        return enmap.read_map(self.source_subtracted_sim_fname())
+        fname = self.source_subtracted_sim_fname()
+        if os.path.exists(fname):
+            self.infomsg(f"loading {fname}")
+        return enmap.read_map(fname)
     
 
 
-
-
 class FGCleanSources(FGCleanSourcesFiles):
-    def __init__(self, output_dir,
-                 imap, freq, beam_fwhm, apod_width,
-                 noise_map_for_filter,
-                 snr_threshold_list,
+    def __init__(self, output_dir, imap, freq, beam_fwhm, apod_width,
+                 noise_map_for_filter, snr_threshold_list,
                  smooth_p2d_npix=fgi.p2d_smooth_npix,
-                 rms_gw=fgi.rms_gw_sources, rms_niter=fgi.rms_niter, rms_nsigma=fgi.rms_nsigma,
+                 rms_gw=fgi.rms_gw_sources, 
+                 rms_niter=fgi.rms_niter, 
+                 rms_nsigma=fgi.rms_nsigma,
                  apply_apod=False, apod_window=None,
                  beam_solid_angle_func=None,
                  calc_beam_solid_angle_func=True,
                  min_num_iter_sources_per_snr=fgi.min_num_iter_sources_per_snr,
                  measured_positions_catalog=None,
-                 extrapolate_dim_sources=True, remeasure_missubtracted_sources=True,
+                 extrapolate_dim_sources=True, 
+                 remeasure_missubtracted_sources=True,
                  freq_for_radio_extrap=None, freq_for_cib_extrap=None,
                  catalog_idxs_to_exclude_from_extrap=[],
-                 min_snr_for_spectral_index=fgi.index_min_snr, nsigma_for_spectral_index=fgi.index_nsigma_to_remove,
+                 min_snr_for_spectral_index=fgi.index_min_snr, 
+                 nsigma_for_spectral_index=fgi.index_nsigma_to_remove,
                  min_snr_for_extrap=fgi.min_snr_for_extrap,
                  remeasure_snr_threshold_list=None,
                  max_ntimes_remeasure=fgi.max_ntimes_remeasure_sources,
@@ -259,7 +295,9 @@ class FGCleanSources(FGCleanSourcesFiles):
         '''
         apply_apod refers to input map: if it isn't already apodized, need to apply apod. before filtering
         '''
-        super().__init__(output_dir, freq, extrapolate_dim_sources=extrapolate_dim_sources, make_output_dirs=True, verbose=verbose, log=log)
+        super().__init__(output_dir, freq, 
+                         extrapolate_dim_sources=extrapolate_dim_sources, 
+                         make_output_dirs=True, verbose=verbose, log=log)
 
         self.imap = imap.copy()
         self.shape = self.imap.shape
@@ -269,41 +307,55 @@ class FGCleanSources(FGCleanSourcesFiles):
         self.apod_width = apod_width
         self.apod_window = apod_window
 
-        self.filter = fgfilters.PointSourceFilter(self.beam_fwhm, noise_map_for_filter, self.apod_width,
-                                                  rms_gw=rms_gw, rms_niter=rms_niter, rms_nsigma=rms_nsigma,
-                                                  apply_apod=apply_apod,
-                                                  deconvolve_pixwin=True, smooth_p2d_npix=smooth_p2d_npix,
-                                                  mask=mask_for_filtered_maps)
+        filt_kwargs = {'rms_gw': rms_gw, 'rms_niter': rms_niter, 'rms_nsigma': rms_nsigma,
+                       'apply_apod': apply_apod, 'deconvolve_pixwin': True,
+                       'smooth_p2d_npix': smooth_p2d_npix, 'mask': mask_for_filtered_maps}
+        self.filter = fgfilters.PointSourceFilter(self.beam_fwhm, noise_map_for_filter, 
+                                                  self.apod_width, **filt_kwargs)
         self.snr_threshold_list = snr_threshold_list.copy()
         self.min_num_iter_sources_per_snr = min_num_iter_sources_per_snr
         self.beam_solid_angle_func = beam_solid_angle_func
 
-
-        if os.path.exists(self.measured_positions_catalog_fname()):
-            self.measured_positions_catalog = fgcatalogs.load_catalog(self.measured_positions_catalog_fname())
+        icat_fname = self.measured_positions_catalog_fname()
+        if os.path.exists(icat_fname):
+            self.measured_positions_catalog = fgcatalogs.load_catalog(icat_fname)
         elif measured_positions_catalog is not None:
-            if os.path.exists(self.catalog_of_subtracted_sources_fname()):
-                errmsg = (f"Cannot use the provided `measured_positions_catalog`: the catalog of {self.freq} GHz"
-                          f" sources has already been measured without using a `measured_positions_catalog` and saved"
-                          f" in the `output_dir` to {self.catalog_of_subtracted_sources_fname()}. You must provide a"
-                          " different `output_dir` if you would like to use the `measured_positions_catalog`.")
+            catalog_fname = self.catalog_of_subtracted_sources_fname()
+            if os.path.exists(catalog_fname):
+                errmsg = ("Cannot use the given `measured_positions_catalog`:"
+                          f" the catalog of detected {self.freq} GHz sources"
+                          " has already been measured without using a"
+                          " `measured_positions_catalog` and saved in the"
+                          f" `output_dir` to {catalog_fname}. You must provide"
+                          " a different `output_dir` if you would like to use"
+                          " the given `measured_positions_catalog`.")
                 raise ValueError(errmsg)
             self.measured_positions_catalog = measured_positions_catalog.copy()
         else:
             self.measured_positions_catalog = None
 
-
         self.extrap = extrapolate_dim_sources and (self.measured_positions_catalog is not None)
         self.remeasure = remeasure_missubtracted_sources
 
-        if self.extrap: # determine which frequency to use to measure CIB and radio spectral indices
+        if self.extrap: 
+            # determine which frequency to use to measure CIB and radio
+            # spectral indices:
             extrap_freqs = list(set(self.measured_positions_catalog['freq'].values))
-            # if `freq_for_radio_extrap` and/or `freq_for_radio_extrap` were passed, make sure we have information from that freq. in the `measured_positions_catalog`
+            
+            # if `freq_for_radio_extrap` and/or `freq_for_radio_extrap` 
+            # were passed, make sure we have information from that freq. 
+            # in the `measured_positions_catalog`:
             if freq_for_radio_extrap not in [None, *extrap_freqs]:
-                raise ValueError(f"You passed `{freq_for_radio_extrap = }`, but this frequency was not found in the `'freq'` column of the `measured_positions_catalog`.")
+                raise ValueError(f"You passed `{freq_for_radio_extrap = }`, "
+                                 "but this frequency is not in the `'freq'` "
+                                 "column of the `measured_positions_catalog`.")
             if freq_for_cib_extrap not in [None, *extrap_freqs]:
-                raise ValueError(f"You passed `{freq_for_cib_extrap = }`, but this frequency was not found in the `'freq'` column of the `measured_positions_catalog`.")
-            # # if `freq_for_radio_extrap` and/or `freq_for_radio_extrap` were not passed, use the min/max available frequency for radio/cib
+                raise ValueError(f"You passed `{freq_for_cib_extrap = }`, but "
+                                 "this frequency is not in the `'freq'` column"
+                                 " of the `measured_positions_catalog`.")
+            
+            # if `freq_for_radio_extrap` and/or `freq_for_radio_extrap` were 
+            # not passed, use the min/max available frequency for radio/cib:
             if len(extrap_freqs) > 1:
                 radio_extrap_freq = min(extrap_freqs)
                 cib_extrap_freq = max(extrap_freqs)
@@ -315,13 +367,21 @@ class FGCleanSources(FGCleanSourcesFiles):
                 else:
                     radio_extrap_freq = extrap_freq
                     cib_extrap_freq = self.freq
-            self.freq_for_radio_extrap = radio_extrap_freq if (freq_for_radio_extrap is None) else freq_for_radio_extrap
-            self.freq_for_cib_extrap = cib_extrap_freq if (freq_for_cib_extrap is None) else freq_for_cib_extrap
+            
+            if freq_for_radio_extrap is None:
+                self.freq_for_radio_extrap = radio_extrap_freq
+            else:
+                self.freq_for_radio_extrap = freq_for_radio_extrap
+            if freq_for_cib_extrap is None:
+                self.freq_for_cib_extrap = cib_extrap_freq
+            else:
+                self.freq_for_cib_extrap = freq_for_cib_extrap
 
             if os.path.exists(self.catalog_idxs_to_exclude_fname()):
                 self.catalog_idxs_to_exclude_from_extrap = np.loadtxt(self.catalog_idxs_to_exclude_fname())
             else:
                 self.catalog_idxs_to_exclude_from_extrap = catalog_idxs_to_exclude_from_extrap.copy()
+        
         else:
             self.freq_for_radio_extrap = None
             self.freq_for_cib_extrap = None
@@ -346,13 +406,14 @@ class FGCleanSources(FGCleanSourcesFiles):
 
         if self.beam_solid_angle_func is None: 
             delta_dec = round(250 * maps.get_map_resolution(self.shape, self.wcs), 3)
-            beam_solid_angle_vs_dec_fname = iterfgclean.get_beam_solid_angle_per_dec_fname(self.beam_fwhm, delta_dec, self.shape, self.wcs, save_dir=self.output_dir)
-            if os.path.exists(beam_solid_angle_vs_dec_fname) or calc_beam_solid_angle_func:
-                self.beam_solid_angle_func = iterfgclean.get_beam_solid_angle_per_dec_func(self.beam_fwhm, delta_dec, self.shape, self.wcs,
-                                                                               save=os.path.exists(self.output_dir), save_dir=self.output_dir,
-                                                                               verbose=self.verbose, log=self.log)
-
-
+            fname = iterfgclean.get_beam_solid_angle_per_dec_fname(self.beam_fwhm, delta_dec, 
+                                                                   self.shape, self.wcs, 
+                                                                   save_dir=self.output_dir)
+            if os.path.exists(fname) or calc_beam_solid_angle_func:
+                beam_args = [self.beam_fwhm, delta_dec, self.shape, self.wcs]
+                beam_kwargs = {'save': os.path.exists(self.output_dir), 'save_dir': self.output_dir,
+                               'verbose': self.verbose, 'log': self.log}
+                self.beam_solid_angle_func = iterfgclean.get_beam_solid_angle_per_dec_func(*beam_args, **beam_kwargs)
 
 
     def get_apod_window(self):
@@ -374,12 +435,14 @@ class FGCleanSources(FGCleanSourcesFiles):
         return imap
 
 
-    def make_src_map(self, catalog, convolve_pixwin=False, convolve_beam=False, apply_apod=False):
+    def make_src_map(self, catalog, convolve_pixwin=False, 
+                     convolve_beam=False, apply_apod=False):
         '''
-        note: `apply_apod` can be false, b/c typically measuring them in apodized map (so no srcs at edges)
-        but option for it to be true, in case, e.g., making a map from sim catalog (w/ srcs at edges)
+        note: `apply_apod` is `False` by default, b/c typically measuring
+        sources in apodized map (so none at edges)
 
-        note: the `catalog` should have a column named `'fluxmJy'` for flux at this freq
+        note: the `catalog` should have a column named `'fluxmJy'` for 
+        the flux at this freq
         '''
         src_map = maps.make_src_map(self.shape, self.wcs, [catalog], self.freq)
         src_map = self.convolve_map(src_map, pixwin=convolve_pixwin, beam=convolve_beam, apod=apply_apod)
@@ -387,7 +450,8 @@ class FGCleanSources(FGCleanSourcesFiles):
 
 
     def subtract_catalog_sources_from_input_map(self, catalog, apply_apod=False):
-        """subtracts the sources in the `catalog` from the input map passed during initialization
+        """subtracts the sources in the `catalog` from the input map 
+        passed during initialization
 
         note: `apply_apod` can be false, b/c typically measuring them in apodized map (so no srcs at edges)
         but option for it to be true, in case, e.g., making a map from sim catalog (w/ srcs at edges)

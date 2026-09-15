@@ -49,8 +49,9 @@ verbose: true
 log: null
 
 
-# NOTE: the remaining settings may be changed, but we recommend that you use the default values
-# (which are the only ones guaranteed to have been thoroughly tested)
+# NOTE: the remaining settings may be changed, but we recommend that you 
+# use the default values (which are the only ones guaranteed to have been 
+# thoroughly tested)
 
 
 # ** FG cleaning ** (passed to `hdfgclean.fgclean.FGClean`):
