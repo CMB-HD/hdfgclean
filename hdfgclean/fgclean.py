@@ -12,15 +12,46 @@ class FGClean:
     
     @classmethod
     def from_config(cls, config_fname, safe=True, **kwargs):
-        '''
-        config_fname is path to yaml file
-        kwargs can be passed to overwrite anything in config file
-            (but note we don't check to make sure changes make sense....)
+        """Initialize the `FGClean` class from a configuration YAML file.
 
-        NOTE : see `fgutils.load_yaml` for info about the `safe` kwarg
-        '''
+        Parameters
+        ----------
+        config_fname : str
+            The configuration file name.
+
+        Returns
+        -------
+        An instance of `FGClean`.
+
+        Other Parameters
+        ----------------
+        safe : bool, default=True
+            By default (when `safe=True`), the YAML file is loaded by
+            calling `yaml.safe_load`. If `safe=False`, the file is loaded
+            by calling `yaml.load` and passing `Loader=yaml.Loader`;
+            NOTE that this allows the execution of any arbitrary python
+            code when loading a YAML file, so you should only pass
+            `safe=False` for files from a trusted source.
+        **kwargs : dict
+            Additional keyword arguments passed to `FGClean`. If an
+            argument is present in both the configuration file and in the
+            `kwargs` dictionary, the latter is used.
+
+        See Also
+        --------
+        save_config : Save a configuration file.
+        fgutils.load_yaml : Load a YAML file with the PyYAML package.
+
+        Notes
+        -----
+        See `fgutils.load_yaml` and the PyYAML documentation for
+        information about the `safe` argument. Passing `safe=False` is
+        required to load YAML files in which, e.g., numpy arrays have
+        been saved, but you should never pass `safe=False` unless your
+        configuration file is from a trusted source.
+        """
+        # load the file and update `config` dict with any `kwargs`:
         config = fgutils.load_yaml(config_fname, safe=safe)
-        # update `config` dict with any `kwargs`:
         config = {**config, **kwargs}
 
         # get required args:
@@ -28,27 +59,31 @@ class FGClean:
         output_dir = config.get('output_dir', default_output_dir)
         # input maps:
         if 'imaps' not in config:
-            raise ValueError("You must provide `imaps`, the input maps with one "
-                             "map or file name per frequency, in the config file.")
+            raise ValueError("You must provide `imaps` dictionary with the"
+                             " input map file names at each frequency.")
         else:
-            imaps = config['imaps'].copy()
+            imaps = config['imaps']
         # beams:
         if 'beam_fwhms' not in config:
-            raise ValueError("You must include the `beam_fwhms` (full-width at half-maximum for a Gaussian "
-                             "beam profile, in arcminutes) for each input map frequency in the config file.")
+            raise ValueError("You must include the `beam_fwhms` dictionary"
+                             " with the beam size for each map frequency.")
         else:
             beam_fwhms = config['beam_fwhms'].copy()
 
         # get kwargs:
         required_arg_names = ['output_dir', 'imaps', 'beam_fwhms']
         allowed_kwarg_names = list(fgutils._get_all_kwargs(cls).keys())
-        ignored_keys = [key for key in config if (key not in [*required_arg_names, *allowed_kwarg_names])]
+        fgclean_keys = [*required_arg_names, *allowed_kwarg_names]
+        ignored_keys = [key for key in config if (key not in fgclean_keys)]
         if (len(ignored_keys) > 0) and mpi.is_rank0:
-            warnings.warn(f"The following keys in the file {config_fname} or in `kwargs` are not "
-                          f"accepted by the FGClean class and will be ignored: {ignored_keys}")
+            warnings.warn(f"The following keys in {config_fname} or in"
+                          " `kwargs` are not accepted by the FGClean"
+                          f" class and will be ignored: {ignored_keys}")
         fgclean_kwargs = fgutils.dict_with_keys(config, allowed_kwarg_names)
         # load in catalogs
-        for key in ['sources_to_mask_before_fgclean_catalog', 'clusters_to_mask_after_fgclean_catalog']:
+        catalog_kwarg_names = ['sources_to_mask_before_fgclean_catalog',
+                               'clusters_to_mask_after_fgclean_catalog']
+        for key in catalog_kwarg_names:
             fname = kwargs.get(key, None)
             if fname is not None:
                 kwargs[key] = fgcatalogs.load_catalog(fname)
@@ -57,34 +92,88 @@ class FGClean:
 
 
     @classmethod
-    def save_config(cls, config_fname, imaps, beam_fwhms, output_dir=None, overwrite=False, **kwargs):
+    def save_config(cls, config_fname, imaps, beam_fwhms,
+                    output_dir=None, overwrite=False, **kwargs):
+        """Save a configuration YAML file that can be used to initialize
+        `FGClean`.
+
+        Parameters
+        ----------
+        config_fname : str
+            The configuration file name.
+        imaps : dict of str
+            A dictionary of the map file names at each frequency. Must
+            have a key (`int` or `float`; we recommend the former) for
+            each map frequency (in GHz), and the corresponding value
+            is the file name of the saved map at that frequency (as a
+            `.fits` file that can be read with `pixell.enmap.read_map`).
+            These are the maps that will be FG cleaned; note that they
+            should be apodized.
+        beam_fwhms : dict of float
+            A dictionary with the beam size at each frequency (full-width
+            at half-maximum, in arcminutes, for a Gaussian beam profile).
+            The keys must be the same as in the `imaps` dictionary.
+        output_dir : str, optional
+            Absolute path to the directory where files will be saved.
+            By default, this will be the directory in which your
+            configuration file will be saved (determined based on its
+            file name).
+        overwrite : bool, default=False
+            Whether to overwrite an existing configuration file with the
+            same file name.
+        **kwargs : dict
+            Additional keyword arguments that can be passed to `FGClean`.
+            Use `str` file names instead of `pixell.enmap.ndmap` (`.fits`
+            files) or `pandas.DataFrame` objects (`.csv` files).
+
+        See Also
+        --------
+        from_config : Initialize `FGClean` from a configuration YAML file
+
+        Notes
+        -----
+        A YAML file containing only built-in Python types (e.g. `int`,
+        `float`, `list`, `dit`) may be loaded by passing `safe=True` to
+        the `from_config` method. If you save any other type of object
+        (e.g., numpy arrays or callable functions), you must pass
+        `safe=False` to the `from_config` method in order to load the
+        file. Please see the notes in `from_config` and the PyYAML
+        documentation before passing `safe=False` when loading YAML
+        files.
+        """
         if os.path.exists(config_fname) and (not overwrite):
-            raise FileExistsError(f"The file {config_fname} already exists. You may "
-                                  "pass a new `config_fname`, or you may pass "
-                                  "`overwrite=True` to overwrite the existing file.")
+            raise FileExistsError(f"The file {config_fname} already exists."
+                                  " You may pass a new `config_fname`, or"
+                                  " you may pass `overwrite=True` to"
+                                  " overwrite the existing file.")
         # make sure `imaps` is not dict of actual `pixell.enmap.ndmap`s:
         if any([isinstance(imap, enmap.ndmap) for imap in imaps.values()]):
-            raise ValueError("The values in the `imaps` dictionary should be "
-                             "file names for each map, not the maps themselves.")
+            raise ValueError("The values in the `imaps` dictionary should"
+                             " be a `.fits` file name for each map.")
         # same for any noise maps:
-        noise_map_kwarg_names = ['noise_maps_for_source_filters', 'noise_maps_for_cluster_filters',
+        noise_map_kwarg_names = ['noise_maps_for_source_filters',
+                                 'noise_maps_for_cluster_filters',
                                  'noise_maps_for_source_mask_filters']
         for key in noise_map_kwarg_names:
             if key in kwargs:
-                if any([isinstance(imap, enmap.ndmap) for imap in kwargs[key].values()]):
-                    raise ValueError(f"The values in the `{key}` dictionary should be "
-                                     "file names for each map, not the maps themselves.")
+                map_values = kwargs[key].values()
+                if any([isinstance(imap, enmap.ndmap) for imap in map_values]):
+                    raise ValueError(f"The values in the `{key}` dictionary "
+                                     "should be a `.fits` file name for each map.")
         # and for catalogs:
-        for key in ['sources_to_mask_before_fgclean_catalog', 'clusters_to_mask_after_fgclean_catalog']:
+        catalog_kwarg_names = ['sources_to_mask_before_fgclean_catalog',
+                               'clusters_to_mask_after_fgclean_catalog']
+        for key in catalog_kwarg_names:
             if key in kwargs:
                 if isinstance(kwargs[key], pd.DataFrame):
-                    raise ValueError(f"The `{key}` should be the path to the catalog, not the catalog itself.")
+                    raise ValueError(f"The `{key}` should be the path to the `.csv` file.")
         # only save kwargs that can be passed to `FGClean`:
         allowed_kwarg_names = list(fgutils._get_all_kwargs(cls).keys())
         ignored_keys = [key for key in kwargs if (key not in allowed_kwarg_names)]
         if (len(ignored_keys) > 0) and mpi.is_rank0:
-            warnings.warn(f"The following keys in `kwargs` are not accepted by the "
-                          f"FGClean class and will be ignored: {ignored_keys}")
+            warnings.warn(f"The following keys in {config_fname} or in"
+                          " `kwargs` are not accepted by the FGClean"
+                          f" class and will be ignored: {ignored_keys}")
         config = fgutils.dict_with_keys(kwargs, allowed_kwarg_names, copy=True)
         config['imaps'] = imaps
         config['beam_fwhms'] = beam_fwhms
@@ -101,47 +190,350 @@ class FGClean:
 
     def __init__(self, output_dir, imaps, beam_fwhms,
                  subtract_sources=True, subtract_clusters=True,
-
-                 max_patch_size=fgi.max_patch_size, patch_apod_width=fgi.patch_apod_width, map_apod_width=0,
-
-                 hd_noise_sims_for_filters_dir=None, noise_maps_kwargs={},
-                 noise_maps_for_source_filters=None, noise_maps_for_cluster_filters=None,
+                 map_apod_width=0,
+                 max_patch_size=fgi.max_patch_size,
+                 patch_apod_width=fgi.patch_apod_width,
+                 map_shape=None, map_wcs=None,
+                 noise_maps_for_source_filters=None,
+                 noise_maps_for_cluster_filters=None,
                  noise_maps_for_source_mask_filters=None,
-
-                 smooth_p2d_npix=fgi.p2d_smooth_npix, # for 2d noise power (used for filt calc)
-                 rms_niter=fgi.rms_niter, rms_nsigma=fgi.rms_nsigma,
-
+                 hd_noise_sims_for_filters_dir=None,
+                 noise_maps_kwargs={},
                  sources_rms_gw=fgi.rms_gw_sources,
                  sources_snr_threshold_list=fgi.sources_snr_threshold_list,
-                 remeasure_snr_threshold_list=fgi.remeasure_sources_snr_threshold_list,
+                 extrapolate_dim_sources=True,
+                 remeasure_missubtracted_sources=True,
                  min_num_iter_sources_per_snr=fgi.min_num_iter_sources_per_snr,
+                 remeasure_snr_threshold_list=fgi.remeasure_sources_snr_threshold_list,
                  max_ntimes_remeasure=fgi.max_ntimes_remeasure_sources,
-                 min_snr_for_spectral_index=fgi.index_min_snr, nsigma_for_spectral_index=fgi.index_nsigma_to_remove,
-                 beam_solid_angle_funcs=None, calc_beam_solid_angle_funcs=True,
-                 extrapolate_dim_sources=True, remeasure_missubtracted_sources=True,
+                 min_snr_for_spectral_index=fgi.index_min_snr,
+                 nsigma_for_spectral_index=fgi.index_nsigma_to_remove,
                  freq_for_radio=None, freq_for_cib=None,
-
+                 calc_beam_solid_angle_funcs=True,
+                 beam_solid_angle_funcs=None,
                  clusters_rms_gw=fgi.rms_gw_clusters,
                  clusters_snr_threshold_list=fgi.clusters_snr_threshold_list,
-                 clusters_iter_match_radius=fgi.clusters_iter_match_radius, # for matching clusters measured on same iter w/ different profiles/filters
-                 cluster_profiles=None, # if None, use default set of gaussians
+                 clusters_iter_match_radius=fgi.clusters_iter_match_radius,
+                 cluster_profiles=None,
                  cluster_profiles_info=None,
-
+                 smooth_p2d_npix=fgi.p2d_smooth_npix,
+                 rms_niter=fgi.rms_niter, rms_nsigma=fgi.rms_nsigma,
                  sources_to_mask_before_fgclean_catalog=None,
                  clusters_to_mask_after_fgclean_catalog=None,
+                 verbose=True, log=None):
+        """Initialize the `FGClean` class.
 
-                 #  these can be passed if want to be able to init w/o loading any maps
-                 map_shape=None, map_wcs=None,
+        Parameters
+        ----------
+        output_dir : str
+            Absolute path to the directory where files will be saved.
+        imaps : dict of str or dict of pixell.enmap.ndmap
+            A dictionary of the maps at each frequency. The dictionary
+            must have a key (`int` or `float`; we recommend the former)
+            for each map frequency (in GHz), and the corresponding value
+            is the map at that frequency. This can be the actual map
+            (as a `pixell.enmap.ndmap`), or the file name of the saved
+            map (as a `.fits` file that can be read with
+            `pixell.enmap.read_map`). These are the maps that will be FG
+            cleaned; note that they should be apodized.
+        beam_fwhms : dict of float
+            A dictionary with the beam size at each frequency (full-width
+            at half-maximum, in arcminutes, for a Gaussian beam profile).
+            The keys must be the same as in the `imaps` dictionary.
+        subtract_sources : bool, default=True
+            Whether to iteratively detect, measure, and remove (CIB and
+            radio) point sources from the maps.
+        subtract_clusters : bool, default=True
+            Whether to iteratively detect, measure, and remove tSZ
+            clusters from the maps.
+        map_apod_width : int or float, default=0
+            The apodization width (in degrees) of the region along the
+            map edges over which the maps have been apodized.
+        max_patch_size : int or float, default=3
+            The maximum allowed width or height (in degrees) of the
+            smaller patches in the original maps, including any padding
+            along the edges to account for the apodization width of the
+            patch and of the full map. The FG cleaning is run on each
+            patch individually, and the results are combined at the end.
+        patch_apod_width : int or float, default=0.25
+            The apodization width (in degrees) that will be used to
+            apodize the smaller patches.
 
-                 verbose=True, log=None,
+        Other Parameters
+        ----------------
+        map_shape : tuple of int, optional
+            The shape `(Ny, Nx)` of the array holding the map data, where
+            `Ny` and `Nx` are the number of pixels along the dec. and
+            R.A. directions, respectively.
+        map_wcs : astropy.wcs.wcs.WCS, optional
+            An astropy World Coordinate System instance for the
+            pixelization of the maps.
+        noise_maps_for_source_filters : dict, optional
+            A dictionary of maps at each frequency used to quantify the
+            noise in the point source matched filters. The format is the
+            same as the `imaps` dictionary. By default, the maps in
+            `imaps` will be used for this purpose. Ignored if
+            `hd_noise_sims_for_filters_dir` is passed.
+        noise_maps_for_cluster_filters : dict, optional
+            A dictionary of maps at each frequency used to quantify the
+            noise in the tSZ cluster matched filters. The format is the
+            same as the `imaps` dictionary. By default, the maps in
+            `imaps` will be used for this purpose. Ignored if
+            `hd_noise_sims_for_filters_dir` is passed.
+        noise_maps_for_source_mask_filters : dict, optional
+            A dictionary of maps at each frequency used to quantify the
+            noise in the point source matched filters used when making the
+            masks after FG cleaning. The format is the same as the `imaps`
+            dictionary. By default, if `noise_maps_for_source_filters`
+            was passed, those maps will be used for this purpose;
+            otherwise, the maps in `imaps` will be used. Ignored if
+            `hd_noise_sims_for_filters_dir` is passed.
+        hd_noise_sims_for_filters_dir : str, optional
+            If you have generated a set of maps used to quantify the
+            noise in the matched filter with the `hdsims` package, pass
+            the path to the directory where the simulations are saved
+            (i.e., the `hd_sims_dir` passed to `hdsims.hdsims.HDSims`).
+            If not provided, then `noise_maps_for_cluster_filters`,
+            `noise_maps_for_cluster_filters`, and
+            `noise_maps_for_source_mask_filters` will be used.
+        noise_maps_kwargs : dict, optional
+            Keyword arguments passed to `fgfilters.NoiseSimsForFilters`
+            (which is derived from `hdsims.hdsims.HDSims`).
+            If you have generated a set of maps used to quantify the
+            noise in the matched filter with the `hdsims` package,
+            this includes all keyword arguments that were passed to
+            `hdsims.hdsims.HDSims` in order to generate the simulations.
+            Ignored if `hd_noise_sims_for_filters_dir` is not passed.
+        sources_rms_gw : int or float, default=10
+            The width and height (in arcminutes) of the grid cells used
+            for the RMS map calculation (see "Notes" below) when
+            filtering the maps to detect point sources. Ignored if
+            `subtract_sources=False`.
+        sources_snr_threshold_list : list of float, optional
+            A list of signal-to-noise ratio (SNR) thresholds used to
+            iteratively detect point sources. The default list is
+            `[250, 100, 75, 50, 40, 30, 25, 20, 15, 12.5, 10, 7.5, 5, 4]`.
+            Ignored if `subtract_sources=False`.
+        extrapolate_dim_sources : bool, default=True
+            Whether to use the detected point source catalogs at
+            different frequencies (`freq_for_cib` or `freq_for_radio` for
+            CIB or radio sources, respectively) to remove sources not
+            detected at a given frequency. See the "Notes" section for
+            further information. Ignored if `subtract_sources=False`.
+        remeasure_missubtracted_sources : bool, default=True
+            If `True`, try to re-measure the fluxes of any mis-subtracted
+            point sources after subtracting all detected sources from the
+            map at a given frequency. See the "Notes" section for further
+            information. Ignored if `subtract_sources=False`.
+        min_num_iter_sources_per_snr : int, default=10
+            When iteratively detecting point sources, once less than
+            `min_num_iter_sources_per_snr` are detected (and removed),
+            move on to the next (lower) SNR in the list of SNR
+            thresholds. Not used for the last (lowest) SNR threshold.
+            Ignored if `subtract_sources=False`.
+        remeasure_snr_threshold_list : list of float, optional
+            A list of SNR thresholds to use while re-measuring
+            mis-subtracted sources. The default is `[250, 100, 50, 25,
+            15, 10, 5, 4]`. Ignored if `subtract_sources=False` or
+            `remeasure_missubtracted_sources=False`.
+        max_ntimes_remeasure : int, default=25
+            The maximum number of times to repeat the re-measurement of
+            mis-subtracted sources. Ignored if `subtract_sources=False`
+            or `remeasure_missubtracted_sources=False`.
+        min_snr_for_spectral_index : int, default=10
+            When calculating the average CIB or radio spectral index
+            between two frequencies, only use sources detected with SNR
+            above `min_snr_for_spectral_index` at both frequencies.
+            Ignored if `subtract_sources=False` or
+            `extrapolate_dim_sources=False`.
+        nsigma_for_spectral_index : float, default=False
+            The number of standard deviations to use to remove outliers
+            from the sources used for the spectral index calculation.
+            Ignored if `subtract_sources=False` or
+            `extrapolate_dim_sources=False`.
+        freq_for_radio, freq_for_cib : int or float or None, optional
+            The second frequency used to measure the radio or CIB
+            spectral index, respectively (see the "Notes" section).
+            Each must be one of the map frequencies. By default, the
+            `freq_for_cib` and `freq_for_radio` will be the highest and
+            lowest map frequencies, respectively. Ignored if
+            `subtract_sources=False` or `extrapolate_dim_sources=False`.
+        calc_beam_solid_angle_funcs : bool, default=True
+            At each frequency, calculate the beam solid angle as a
+            function of declination (due to the varying pixel size) by
+            measuring the variation of the beam solid angle in the map.
+            If `calc_beam_solid_angle_funcs=True` and the
+            `beam_solid_angle_funcs` dictionary was passed, the
+            calculation will only be done for frequencies not in the
+            dictionary. If `calc_beam_solid_angle_funcs=False` and the
+            `beam_solid_angle_funcs` was not passed (or does not contain
+            all frequencies), a constant beam solid angle will be used.
+        beam_solid_angle_funcs : dict or None, default=None
+            A dictionary, with the frequencies in `imaps` as the keys, of
+            callable functions that return the beam solid angle
+            (steradians) for that frequency at a given map declination
+            (degrees).
+        clusters_rms_gw : int or float, default=40
+            The width and height (in arcminutes) of the grid cells used
+            for the RMS map calculation (see "Notes" below) when
+            filtering the maps to detect tSZ clusters. Ignored if
+            `subtract_clusters=False`.
+        clusters_snr_threshold_list : list of float, optional
+            A list of signal-to-noise ratio (SNR) thresholds used to
+            iteratively detect clusters.
+            The default list is `[50, 25, 15, 12.5, 10, 7.5, 5, 4]`.
+            Ignored if `subtract_clusters=False`.
+        clusters_iter_match_radius : int or float, default=1
+            On a given cluster subtraction iteration, all clusters
+            detected (using different filters, corresponding to different
+            radial cluster profiles) within a distance of
+            `clusters_iter_match_radius` from the highest-SNR detection in
+            that region are identified as the same cluster, and only the
+            highest-SNR detection is kept.
+            Ignored if `subtract_clusters=False`.
+        cluster_profiles : dict of dict, optional
+            A dictionary containing a set of radial cluster profiles to
+            use when detecting tSZ clusters; a multi-frequency matched
+            filter is calculated for each profile.
+            Each (key, value) pair must be, respectively, a label (`str`)
+            for a given profile and a dictionary with the following keys
+            and values:
+            - `'radial_prof_func'` : A callable `function` for the radial
+                                     profile. The first argument must be
+                                     the angular distance (in arcminutes)
+                                     from the origin.
+            - `'args'` : A list of any additional positional arguments to
+                         pass to the profile function.
+            - `'kwargs'` : A dictionary of any additional keyword
+                           arguments to pass to the profile function.
+            - `'rmax'` : A maximum angular distance (in arcminutes) from
+                         the origin, beyond which the radial profile is
+                         truncated.
+            The default set of cluster profiles are 11 Gaussian profiles
+            with standard deviations of 0.25, 0.3, 0.35, 0.4, 0.45, 0.5,
+            0.55, 0.6, 0.65, 0.7, and 0.75 arcminutes. If a non-default
+            set of `cluster_profiles` is passed, you must also pass
+            `cluster_profiles_info`.
+            Ignored if `subtract_clusters=False`.
+        cluster_profiles_info : str or None, default=None
+            If a `cluster_profiles` dictionary was passed, you must also
+            pass a short, simple description of the set of profiles to
+            `cluster_profiles_info` to use in the output file names.
+            Ignored if `subtract_clusters=False` or
+            `cluster_profiles=None`.
+        smooth_p2d_npix : int, default=3
+            The number of pixels used to smooth the 2D "noise" power
+            spectrum in the matched filter calculations, by convolving
+            with a Gaussian with a standard deviation of
+            `smooth_p2d_npix` pixels.
+        rms_niter : int, default=10
+            The number of iterations used to estimate the RMS map in each
+            RMS grid cell.
+        rms_nsigma : int or float, default=3
+            The number of standard deviations used to remove outliers
+            when iteratively calculating the RMS map in each grid cell.
+        sources_to_mask_before_fgclean_catalog : optional
+            A catalog (`pandas.DataFrame`)  of known, very bright sources
+            in the maps, which will be masked before FG cleaning. Must
+            have columns `'RADeg'`, `'decDeg'` (R.A., dec. of each
+            source, in degrees) and a column for flux in mJy at each
+            frequency (keys of `imaps`) named
+            `f'fluxmJy_{round(freq)}GHz'`.
+        clusters_to_mask_after_fgclean_catalog : optional
+            A catalog (`pandas.DataFrame`) of any known clusters (e.g.,
+            nearby, large, massive) that you would like to include in the
+            final mask; must have columns `'RADeg'`, `'decDeg'` (R.A.,
+            dec. of each cluster) and `mask_radius` (radius of each hole
+            in the mask, in arcminutes).
+        verbose : bool, default=False
+            Whether to print messages describing the progress of the FG
+            cleaning.
+        log : logging.Logger, optional
+            A `logging.Logger` instance to use when `verbose=True`. If a
+            `log` is passed, any messages will be passed to `log.info`.
+            Otherwise, messages will be passed to the `print` function.
 
-                ):
-        '''
-        NOTE : imaps and noise_maps_for_{}_filters dicts can contain maps or filenames ; noise maps should NOT be apodized
+        See Also
+        --------
+        fgmaps.divide_map_area_into_patches, fgmaps.MapPatches :
+            Used to divide the maps into smaller patches.
+        fgfilters.calc_rms_map : The RMS map calculation.
+        fgfilters.get_default_gauss_cluster_profiles_dict :
+            The default `cluster_profiles` dictionary.
 
-        sources_to_mask_before_fgclean should have columns `'RADeg'`, `'decDeg'`, and a column for flux in mJy
-        at each `freq` named `'fluxmJy_{round(freq)}GHz'`
-        '''
+        Notes
+        -----
+        The FG cleaning procedure used here is described in detail in
+        MacInnis et. al. (2026), arXiv:XXXX.XXXXX (!!TODO:LINK!!)
+
+        You should use a new `output_dir` for each FG cleaning run.
+
+        If the `imaps` dictionary contains map file names and the
+        `map_shape` and `map_wcs` are not passed, one of the `imaps will
+        be loaded in order to obtain its `shape` and `wcs` attributes.
+
+        The maps used to quantify the noise in the matched filters must
+        be at least as large as the `max_patch_size` on each side; they
+        do not need to be as large as the original maps (if the original
+        maps are larger than the `max_patch_size`).
+
+        A "SNR map" is a map of the signal-to-noise ratio (SNR) in each
+        pixel of a matched-filtered map. The filtered map is the "signal"
+        part of the SNR, and the "RMS map" is the "noise" part.
+
+        Extrapolaing dim sources:
+        Here is a brief, simplified summary of the "extrapolation" done
+        during the point source subtraction:
+        1. Detect, measure, and remove sources at the `freq_for_cib`
+           frequency above the minimum SNR threshold
+        2. (a) Detect, measure, and remove sources at the
+               `freq_for_radio` frequency above the minimum SNR threshold
+           (b) Identify all sources that were measured at both
+               `freq_for_radio` and `freq_for_cib`, and calculate an
+               average CIB spectral index from the sources that are
+               brighter at the higher frequency
+           (c) Identify all sources detected at the `freq_for_cib` but
+               not at the `freq_for_radio`, and use the average CIB
+               spectral index to extrapolate their fluxes to the
+               `freq_for_radio` and remove them from that map
+        3. Make a catalog of all sources that were detected at at least
+           one of `freq_for_cib` or `freq_for_radio`. Identify sources
+           that are brighter/dimmer at the higher frequency as CIB/radio.
+        4. For each remaining map frequency `freq`:
+           (a) Detect, measure, and remove sources at the `freq` above
+               the minimum SNR threshold
+           (b) Identify all sources that were measured at both
+               `freq_for_cib`/`freq_for_radio`, and calculate an average
+               CIB/radio spectral index from the sources that are
+               brighter/dimmer at the higher frequency
+           (c) Identify all sources in the catalog from step 3 but not at
+               the `freq`, and use the average CIB/radio spectral index
+               to extrapolate the CIB/radio fluxes to the `freq` and
+               remove them from that map.
+
+        Re-measuring mis-subtracted sources:
+        After removing all sources detected above the minimum SNR at a
+        given frequency and dim sources detected at a different frequency
+        (if applicable), we once again apply the matched filter to the
+        map, and identify mis-subtracted sources as any point source that
+        is located in a region with |SNR| exceeding the minimum
+        threshold.
+        This is done by "un-subtracting" those sources from the map (or,
+        equivalently, removing them from the detected source catalog for
+        that map, and then only subtracting the remaining sources in the
+        catalog from the original map). We then repeat the process of
+        iteratively detecting, measuring, and removing sources on this
+        new map (using the `remeasure_snr_threshold_list`), in order to
+        more accurately measure the positions and fluxes of the
+        "mis-subtracted" sources.
+        The entire "re-measuring" procedure is repeated a maximum of
+        `max_ntimes_remeasure` times.
+        Note that there are typically not many mis-subtracted sources
+        at the `freq_for_cib`, but there are typically many
+        mis-subtracted sources in the maps after the "extrapolation" step
+        (due to, e.g., sources appearing more blended at lower
+        frequencies).
+        """
         self.freqs = list(imaps.keys())
         self.output_dir = output_dir
         self.verbose = verbose
