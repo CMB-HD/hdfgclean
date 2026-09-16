@@ -333,8 +333,8 @@ def calc_rms_map(imap, rms_gw, apod_width=0, fix_rms_gw=False,
 
     Notes
     -----
-    See arXiv:XXXX.XXXXX (!! TODO !!) for further details about the "RMS
-    map" calculation.
+    See arXiv:2609.16128 for further details about the "RMS map"
+    calculation.
     """
     # get map resolution & geometry of region to use for RMS calculation:
     pixel_size = maps.get_map_resolution(imap.shape, imap.wcs)

@@ -1,6 +1,6 @@
 # Foreground cleaning for CMB-HD
 
-This repository contains code to run the extragalactic foreground (FG) cleaning procedure presented in [MacInnis, Ange, Sehgal, Kable, and Blackstad (2026)](https://arxiv.org/abs/XXXX.XXXXX), which detects and removes the thermal SZ (tSZ), cosmic infrared background (CIB), and radio galaxies from a set of ultrahigh-resolution lensed CMB temperature maps that also include the kinetic SZ (kSZ) and instrumental noise. Please cite that work if you use this code.
+This repository contains code to run the extragalactic foreground (FG) cleaning procedure presented in [MacInnis, Ange, Sehgal, Kable, and Blackstad (2026)](https://arxiv.org/abs/2609.16128), which detects and removes the thermal SZ (tSZ), cosmic infrared background (CIB), and radio galaxies from a set of ultrahigh-resolution lensed CMB temperature maps that also include the kinetic SZ (kSZ) and instrumental noise. Please cite that work if you use this code.
 
 The code we provide here can be used to iteratively detect, measure, and remove the CIB, radio galaxies, and tSZ clusters from a set of maps at multiple frequencies.
 

@@ -464,7 +464,7 @@ class FGClean:
         Notes
         -----
         The FG cleaning procedure used here is described in detail in
-        MacInnis et. al. (2026), arXiv:XXXX.XXXXX (!!TODO:LINK!!)
+        MacInnis et. al. (2026), arXiv:2609.16128
 
         You should use a new `output_dir` for each FG cleaning run.
 

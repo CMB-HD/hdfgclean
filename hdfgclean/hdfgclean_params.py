@@ -1,4 +1,4 @@
-"""Functions used to reproduce the parameter results of arXiv:XXXX.XXXXX (!! TODO !!)"""
+"""Functions used to reproduce the parameter results of arXiv:2609.16128 """
 
 import os
 import numpy as np
